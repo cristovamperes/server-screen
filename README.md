@@ -23,23 +23,29 @@ This fork provides a Python script (`screen_update.py`) that connects to an Infl
 
 ### How to Use
 
-1. **Clone the Repository**:    ```bash
+1. **Clone the Repository**:
+    ```bash
    git clone <your-fork-url>
-   cd <your-fork-directory>   ```
+   cd <your-fork-directory>
+    ```
 
 2. **Install Dependencies**:
    Ensure you have Python 3.8+ and the required packages installed. You can use `pip` to install the dependencies:   ```bash
    pip install -r requirements.txt   ```
 
 3. **Configure Environment Variables**:
-   Create a `.env` file in the root directory with the following variables:   ```plaintext
+   Create a `.env` file in the root directory with the following variables:  
+   ```
    INFLUXDB_URL=<your-influxdb-url>
    INFLUXDB_TOKEN=<your-influxdb-token>
-   INFLUXDB_ORG=<your-influxdb-organization>   ```
+   INFLUXDB_ORG=<your-influxdb-organization>
+   ```
 
 4. **Run the Script**:
-   Execute the script to start displaying system metrics:   ```bash
-   python server-screen/screen_update.py   ```
+   Execute the script to start displaying system metrics:   
+   ```
+   bash python server-screen/screen_update.py
+   ```
 
 ### Customization
 
