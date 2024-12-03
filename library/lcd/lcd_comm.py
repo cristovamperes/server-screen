@@ -248,7 +248,8 @@ class LcdComm(ABC):
 
         # Get text bounding box
         if (font, font_size) not in self.font_cache:
-            self.font_cache[(font, font_size)] = ImageFont.truetype("./res/fonts/" + font, font_size)
+            font_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "res", "fonts", font)
+            self.font_cache[(font, font_size)] = ImageFont.truetype(font_path, font_size)
         font = self.font_cache[(font, font_size)]
         d = ImageDraw.Draw(text_image)
 
