@@ -136,7 +136,7 @@ def main():
     
     # Initialize display communication
     lcd_comm = LcdCommRevA(
-        com_port="AUTO",
+        com_port="/dev/ttyACM0",
         display_width=320,
         display_height=480
     )
