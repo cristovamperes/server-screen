@@ -60,6 +60,17 @@ def get_system_data():
     |> last()
     '''
 
+    # NVME temperature query
+    nvme_temp_query = '''
+    from(bucket: "homelab")
+    |> range(start: -1m)
+    |> filter(fn: (r) => r["_measurement"] == "sensors")
+    |> filter(fn: (r) => r["_field"] == "temp_input")
+    |> filter(fn: (r) => r["chip"] == "nvme-pci-0100" or r["chip"] == "nvme-pci-8100")
+    |> filter(fn: (r) => r["feature"] == "composite")
+    |> last()
+    '''
+
     # Initialize values
     data = {
         'download': 0,
@@ -74,7 +85,9 @@ def get_system_data():
         'input_voltage': 0,
         'output_voltage': 0,
         'internal_temp': 0,
-        'cpu_temp': 0
+        'cpu_temp': 0,
+        'nvme_0100_temp': 0,
+        'nvme_8100_temp': 0
     }
     
     try:
@@ -100,6 +113,17 @@ def get_system_data():
             for record in table.records:
                 if record.get_field() == "temp_input":
                     data['cpu_temp'] = record.get_value()
+
+        # Get NVME temperatures
+        tables = client.query_api().query(nvme_temp_query)
+        for table in tables:
+            for record in table.records:
+                if record.get_field() == "temp_input":
+                    chip = record.values.get("chip")
+                    if chip == "nvme-pci-0100":
+                        data['nvme_0100_temp'] = record.get_value()
+                    elif chip == "nvme-pci-8100":
+                        data['nvme_8100_temp'] = record.get_value()
 
         return data
     finally:
@@ -258,7 +282,7 @@ def main():
         lcd_comm.DisplayText(
             text="CPU Temperature",
             x=5,
-            y=375,
+            y=270,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_RED,
@@ -272,7 +296,7 @@ def main():
         lcd_comm.DisplayText(
             text=f"{data['cpu_temp']:.1f}°C",
             x=5,
-            y=400,
+            y=300,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -283,10 +307,32 @@ def main():
         lcd_comm.DisplayText(
             text=gauge,
             x=80,  # Adjusted x position to align with temperature
-            y=400,
+            y=300,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=gauge_color,
+            background_color=(0, 0, 0)
+        )
+
+        # NVME Temperature Section
+        lcd_comm.DisplayText(
+            text="NVME Temperatures",
+            x=5,
+            y=330,
+            font="roboto/Roboto-Bold.ttf",
+            font_size=24,
+            font_color=LIGHT_RED,
+            background_color=(0, 0, 0)
+        )
+        
+        # Display NVME temperatures
+        lcd_comm.DisplayText(
+            text=f"NVME 1: {data['nvme_0100_temp']:.1f}°C  |  NVME 2: {data['nvme_8100_temp']:.1f}°C",
+            x=5,
+            y=360,
+            font="roboto/Roboto-Regular.ttf",
+            font_size=20,
+            font_color=WHITE,
             background_color=(0, 0, 0)
         )
 
