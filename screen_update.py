@@ -271,9 +271,9 @@ def main():
         )
         y_pos = 200
         ups_info = [
-            f"Status: {data['ups_status']}",
+            f"Status: {data['ups_status']}  |  Charger: {data['battery_charger_status']}",
+            f"Battery: {data['battery_charge_percent']:.1f}%  |  {data['battery_voltage']:.1f}V",
             f"Load: {data['load_percent']:.1f}%  |  Temp: {data['internal_temp']:.1f}°C",
-            f"Charger: {data['battery_charger_status']}  |  Battery: {data['battery_charge_percent']:.1f}%  |  {data['battery_voltage']:.1f}V",
             f"Input: {data['input_voltage']:.1f}V  |  Output: {data['output_voltage']:.1f}V"
         ]
         for info in ups_info:
