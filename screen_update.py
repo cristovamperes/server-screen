@@ -173,7 +173,7 @@ def main():
         )
         lcd_comm.DisplayText(
             text=current_date,
-            x=200,  # Right-aligned position
+            x=190,  # Right-aligned position
             y=5,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
@@ -184,7 +184,7 @@ def main():
         lcd_comm.DisplayText(
             text="_________________________________",
             x=5,
-            y=30,
+            y=25,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -201,10 +201,10 @@ def main():
             font_color=LIGHT_BLUE,
             background_color=(0, 0, 0)
         )
-        # Display internet metrics in a single line with symbols
-        internet_metrics = f"Up:{data['upload']:.1f} Down:{data['download']:.1f} Latency:{data['latency']:.0f}ms"
+
+        # Display location on the next line
         lcd_comm.DisplayText(
-            text=internet_metrics,
+            text=f"Location: {data['location']}",
             x=5,
             y=90,
             font="roboto/Roboto-Regular.ttf",
@@ -212,9 +212,11 @@ def main():
             font_color=WHITE,
             background_color=(0, 0, 0)
         )
-        # Display location on the next line
+
+        # Display internet metrics in a single line with symbols
+        internet_metrics = f"Up:{data['upload']:.1f} Down:{data['download']:.1f} Latency:{data['latency']:.0f}ms"
         lcd_comm.DisplayText(
-            text=f"Location: {data['location']}",
+            text=internet_metrics,
             x=5,
             y=110,
             font="roboto/Roboto-Regular.ttf",
@@ -227,7 +229,7 @@ def main():
         lcd_comm.DisplayText(
             text="UPS",
             x=5,
-            y=180,
+            y=140,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_GREEN,
@@ -235,14 +237,9 @@ def main():
         )
         y_pos = 205
         ups_info = [
-            f"Status: {data['ups_status']}",
-            f"Load: {data['load_percent']:.1f}%",
-            f"Battery: {data['battery_charge_percent']:.1f}%",
-            f"Charger: {data['battery_charger_status']}",
-            f"Batt V: {data['battery_voltage']:.1f}V",
-            f"Input: {data['input_voltage']:.1f}V",
-            f"Output: {data['output_voltage']:.1f}V",
-            f"Temp: {data['internal_temp']:.1f}°C"
+            f"Status: {data['ups_status']}  |  Load: {data['load_percent']:.1f}%  |  Temp: {data['internal_temp']:.1f}°C",
+            f"Charger: {data['battery_charger_status']}  |  Battery: {data['battery_charge_percent']:.1f}%  |  {data['battery_voltage']:.1f}V",
+            f"Input: {data['input_voltage']:.1f}V  |  Output: {data['output_voltage']:.1f}V"
         ]
         for info in ups_info:
             lcd_comm.DisplayText(
