@@ -217,7 +217,7 @@ def main():
 
         # Internet Status Section
         lcd_comm.DisplayText(
-            text="Internet",
+            text="INTERNET",
             x=5,
             y=60,
             font="roboto/Roboto-Bold.ttf",
