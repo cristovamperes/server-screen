@@ -206,7 +206,7 @@ def main():
         )
         # Draw a line below time and date
         lcd_comm.DisplayText(
-            text="_________________________________",
+            text="____________________________________",
             x=5,
             y=25,
             font="roboto/Roboto-Regular.ttf",
@@ -237,12 +237,22 @@ def main():
             background_color=(0, 0, 0)
         )
 
+        lcd_comm.DisplayText(
+            text=f"Latency: {data['latency']:.0f}ms",
+            x=5,
+            y=110,
+            font="roboto/Roboto-Regular.ttf",
+            font_size=20,
+            font_color=WHITE,
+            background_color=(0, 0, 0)
+        )
+
         # Display internet metrics in a single line with symbols
-        internet_metrics = f"Up:{data['upload']:.1f} Down:{data['download']:.1f} Latency:{data['latency']:.0f}ms"
+        internet_metrics = f"Up: {data['upload']:.1f}  |  Down:{data['download']:.1f}"
         lcd_comm.DisplayText(
             text=internet_metrics,
             x=5,
-            y=110,
+            y=130,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -253,13 +263,13 @@ def main():
         lcd_comm.DisplayText(
             text="UPS",
             x=5,
-            y=150,
+            y=170,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_GREEN,
             background_color=(0, 0, 0)
         )
-        y_pos = 180
+        y_pos = 200
         ups_info = [
             f"Status: {data['ups_status']}",
             f"Load: {data['load_percent']:.1f}%  |  Temp: {data['internal_temp']:.1f}°C",
@@ -282,7 +292,7 @@ def main():
         lcd_comm.DisplayText(
             text="CPU",
             x=5,
-            y=280,
+            y=300,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_RED,
@@ -296,7 +306,7 @@ def main():
         lcd_comm.DisplayText(
             text=f"{data['cpu_temp']:.1f}°C",
             x=5,
-            y=300,
+            y=320,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -307,7 +317,7 @@ def main():
         lcd_comm.DisplayText(
             text=gauge,
             x=80,  # Adjusted x position to align with temperature
-            y=300,
+            y=340,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=gauge_color,
@@ -318,7 +328,7 @@ def main():
         lcd_comm.DisplayText(
             text="NVME",
             x=5,
-            y=340,
+            y=360,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_RED,
@@ -329,7 +339,7 @@ def main():
         lcd_comm.DisplayText(
             text=f"NVME 1: {data['nvme_0100_temp']:.1f}°C  |  NVME 2: {data['nvme_8100_temp']:.1f}°C",
             x=5,
-            y=360,
+            y=380,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
