@@ -173,9 +173,19 @@ def main():
         )
         lcd_comm.DisplayText(
             text=current_date,
+            x=200,  # Right-aligned position
+            y=5,
+            font="roboto/Roboto-Bold.ttf",
+            font_size=20,
+            font_color=WHITE,
+            background_color=(0, 0, 0)
+        )
+        # Draw a line below time and date
+        lcd_comm.DisplayText(
+            text="________________________________",
             x=5,
             y=35,
-            font="roboto/Roboto-Bold.ttf",
+            font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
             background_color=(0, 0, 0)
@@ -191,24 +201,27 @@ def main():
             font_color=LIGHT_BLUE,
             background_color=(0, 0, 0)
         )
-        y_pos = 90
-        internet_info = [
-            f"Location: {data['location']}",
-            f"Download: {data['download']:.1f} Mbps",
-            f"Upload: {data['upload']:.1f} Mbps",
-            f"Latency: {data['latency']:.0f} ms"
-        ]
-        for info in internet_info:
-            lcd_comm.DisplayText(
-                text=info,
-                x=5,
-                y=y_pos,
-                font="roboto/Roboto-Regular.ttf",
-                font_size=20,
-                font_color=WHITE,
-                background_color=(0, 0, 0)
-            )
-            y_pos += 20
+        # Display internet metrics in a single line with symbols
+        internet_metrics = f"↑{data['upload']:.1f} ↓{data['download']:.1f} ⏱{data['latency']:.0f}ms"
+        lcd_comm.DisplayText(
+            text=internet_metrics,
+            x=5,
+            y=90,
+            font="roboto/Roboto-Regular.ttf",
+            font_size=20,
+            font_color=WHITE,
+            background_color=(0, 0, 0)
+        )
+        # Display location on the next line
+        lcd_comm.DisplayText(
+            text=f"Location: {data['location']}",
+            x=5,
+            y=110,
+            font="roboto/Roboto-Regular.ttf",
+            font_size=20,
+            font_color=WHITE,
+            background_color=(0, 0, 0)
+        )
 
         # UPS Status Section
         lcd_comm.DisplayText(
