@@ -229,15 +229,16 @@ def main():
         lcd_comm.DisplayText(
             text="UPS",
             x=5,
-            y=140,
+            y=150,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_GREEN,
             background_color=(0, 0, 0)
         )
-        y_pos = 205
+        y_pos = 180
         ups_info = [
-            f"Status: {data['ups_status']}  |  Load: {data['load_percent']:.1f}%  |  Temp: {data['internal_temp']:.1f}°C",
+            f"Status: {data['ups_status']}",
+            f"Load: {data['load_percent']:.1f}%  |  Temp: {data['internal_temp']:.1f}°C",
             f"Charger: {data['battery_charger_status']}  |  Battery: {data['battery_charge_percent']:.1f}%  |  {data['battery_voltage']:.1f}V",
             f"Input: {data['input_voltage']:.1f}V  |  Output: {data['output_voltage']:.1f}V"
         ]
