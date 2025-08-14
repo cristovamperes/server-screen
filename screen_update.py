@@ -331,7 +331,7 @@ def main():
             y=370,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
-            font_color=LIGHT_RED,
+            font_color=LIGHT_YELLOW,
             background_color=(0, 0, 0)
         )
         
