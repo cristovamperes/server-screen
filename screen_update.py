@@ -306,7 +306,7 @@ def main():
         lcd_comm.DisplayText(
             text=f"{data['cpu_temp']:.1f}°C",
             x=5,
-            y=320,
+            y=330,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -317,7 +317,7 @@ def main():
         lcd_comm.DisplayText(
             text=gauge,
             x=80,  # Adjusted x position to align with temperature
-            y=340,
+            y=330,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=gauge_color,
@@ -339,7 +339,7 @@ def main():
         lcd_comm.DisplayText(
             text=f"NVME 1: {data['nvme_0100_temp']:.1f}°C  |  NVME 2: {data['nvme_8100_temp']:.1f}°C",
             x=5,
-            y=380,
+            y=390,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
