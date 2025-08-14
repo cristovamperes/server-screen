@@ -176,15 +176,15 @@ def main():
             x=200,  # Right-aligned position
             y=5,
             font="roboto/Roboto-Bold.ttf",
-            font_size=20,
+            font_size=24,
             font_color=WHITE,
             background_color=(0, 0, 0)
         )
         # Draw a line below time and date
         lcd_comm.DisplayText(
-            text="________________________________",
+            text="_________________________________",
             x=5,
-            y=35,
+            y=30,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -195,14 +195,14 @@ def main():
         lcd_comm.DisplayText(
             text="Internet",
             x=5,
-            y=65,
+            y=60,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_BLUE,
             background_color=(0, 0, 0)
         )
         # Display internet metrics in a single line with symbols
-        internet_metrics = f"↑{data['upload']:.1f} ↓{data['download']:.1f} ⏱{data['latency']:.0f}ms"
+        internet_metrics = f"Up:{data['upload']:.1f} Down:{data['download']:.1f} Latency:{data['latency']:.0f}ms"
         lcd_comm.DisplayText(
             text=internet_metrics,
             x=5,
