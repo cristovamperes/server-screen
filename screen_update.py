@@ -55,8 +55,8 @@ def get_system_data():
     |> range(start: -1m)
     |> filter(fn: (r) => r["_measurement"] == "sensors")
     |> filter(fn: (r) => r["_field"] == "temp_input")
-    |> filter(fn: (r) => r["chip"] == "k10temp-pci-00c3")
-    |> filter(fn: (r) => r["feature"] == "tctl")
+    |> filter(fn: (r) => r["chip"] == "coretemp-isa-0000")
+    |> filter(fn: (r) => r["feature"] == "package_id_0")
     |> last()
     '''
 
