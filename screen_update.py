@@ -328,7 +328,7 @@ def main():
         lcd_comm.DisplayText(
             text="NVME",
             x=5,
-            y=360,
+            y=370,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_RED,
@@ -339,7 +339,7 @@ def main():
         lcd_comm.DisplayText(
             text=f"NVME 1: {data['nvme_0100_temp']:.1f}°C  |  NVME 2: {data['nvme_8100_temp']:.1f}°C",
             x=5,
-            y=390,
+            y=400,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
