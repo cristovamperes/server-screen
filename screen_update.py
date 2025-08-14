@@ -280,9 +280,9 @@ def main():
 
         # CPU Temperature Section
         lcd_comm.DisplayText(
-            text="CPU Temperature",
+            text="CPU",
             x=5,
-            y=270,
+            y=280,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_RED,
@@ -316,9 +316,9 @@ def main():
 
         # NVME Temperature Section
         lcd_comm.DisplayText(
-            text="NVME Temperatures",
+            text="NVME",
             x=5,
-            y=330,
+            y=340,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_RED,
