@@ -337,7 +337,7 @@ def main():
         
         # Display NVME temperatures
         lcd_comm.DisplayText(
-            text=f"NVME 1: {data['nvme_0100_temp']:.1f}°C  |  NVME 2: {data['nvme_8100_temp']:.1f}°C",
+            text=f"SK Hynix: {data['nvme_0100_temp']:.1f}°C  |  990 Evo: {data['nvme_8100_temp']:.1f}°C",
             x=5,
             y=400,
             font="roboto/Roboto-Regular.ttf",
