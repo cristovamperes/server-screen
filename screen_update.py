@@ -349,13 +349,13 @@ def main():
         lcd_comm.DisplayText(
             text="UPS",
             x=5,
-            y=170,
+            y=190,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_GREEN,
             background_color=(0, 0, 0)
         )
-        y_pos = 200
+        y_pos = 220
         ups_info = [
             f"Status: {data['ups_status']}  |  Charger: {data['battery_charger_status']}",
             f"Battery: {data['battery_charge_percent']:.1f}%  |  {data['battery_voltage']:.1f}V",
@@ -378,7 +378,7 @@ def main():
         lcd_comm.DisplayText(
             text="CPU",
             x=5,
-            y=300,
+            y=320,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_RED,
@@ -392,7 +392,7 @@ def main():
         lcd_comm.DisplayText(
             text=f"{data['cpu_temp']:.1f}°C",
             x=5,
-            y=330,
+            y=350,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -403,7 +403,7 @@ def main():
         lcd_comm.DisplayText(
             text=gauge,
             x=80,  # Adjusted x position to align with temperature
-            y=330,
+            y=350,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=gauge_color,
@@ -414,7 +414,7 @@ def main():
         lcd_comm.DisplayText(
             text="NVME",
             x=5,
-            y=370,
+            y=390,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_YELLOW,
@@ -425,7 +425,7 @@ def main():
         lcd_comm.DisplayText(
             text=f"SK Hynix: {data['nvme_0100_temp']:.1f}°C  |  990 Evo: {data['nvme_8100_temp']:.1f}°C",
             x=5,
-            y=400,
+            y=420,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
