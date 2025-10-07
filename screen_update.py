@@ -334,7 +334,7 @@ def main():
         )
 
         # Display internet metrics in a single line with symbols
-        internet_metrics = f"Speed Test: {data['upload']:.0f} UP / {data['download']:.0f} DOWN"
+        internet_metrics = f"Speed Test: {data['upload']:.0f} ↑ / {data['download']:.0f} ↓"
         lcd_comm.DisplayText(
             text=internet_metrics,
             x=5,
