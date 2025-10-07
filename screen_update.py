@@ -1,11 +1,13 @@
+import json
 import os
 import time
+from urllib.error import HTTPError, URLError
+from urllib.request import urlopen
 from dotenv import load_dotenv
 from library.lcd.lcd_comm import Orientation
 from library.lcd.lcd_comm_rev_a import LcdCommRevA
 from PIL import Image
 from influxdb_client import InfluxDBClient
-from dotenv import load_dotenv
 
 # Load environment variables at the start of your script
 load_dotenv()
@@ -16,6 +18,68 @@ LIGHT_BLUE = (135, 206, 235)    # Sky blue
 LIGHT_GREEN = (144, 238, 144)   # Light green
 LIGHT_RED = (255, 160, 160)     # Light red for CPU temp
 LIGHT_YELLOW = (255, 255, 153)   # Light yellow for CPU temp
+IPIFY_URL = os.getenv("IPIFY_URL", "https://api.ipify.org?format=json")
+IP_API_URL_TEMPLATE = os.getenv(
+    "IP_API_URL", "http://ip-api.com/json/{ip}?fields=status,message,city,countryCode,isp"
+)
+LAST_IP_DETAILS = {
+    "public_ip": "Unknown",
+    "location_city": "Unknown",
+    "location_country_code": "",
+    "isp": "Unknown",
+}
+
+
+def get_public_ip():
+    """Fetch the current public IPv4 address, fallback to Unknown on errors."""
+    try:
+        with urlopen(IPIFY_URL, timeout=5) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            return payload.get("ip", "Unknown")
+    except (URLError, HTTPError, TimeoutError, json.JSONDecodeError):
+        return "Unknown"
+
+
+def get_ip_details():
+    """
+    Return WAN IP plus ISP/location details derived from ip-api.com.
+
+    Falls back to the last known successful values when the API calls fail so the
+    screen does not flash back to "Unknown" on transient network glitches.
+    """
+    global LAST_IP_DETAILS
+    cached_details = LAST_IP_DETAILS.copy()
+
+    ip = get_public_ip()
+    if ip == "Unknown":
+        return cached_details
+
+    updated_details = cached_details.copy()
+    updated_details["public_ip"] = ip
+
+    try:
+        url = IP_API_URL_TEMPLATE.format(ip=ip)
+    except KeyError:
+        LAST_IP_DETAILS = updated_details
+        return updated_details
+
+    try:
+        with urlopen(url, timeout=5) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (URLError, HTTPError, TimeoutError, json.JSONDecodeError):
+        LAST_IP_DETAILS = updated_details
+        return updated_details
+
+    if payload.get("status") != "success":
+        LAST_IP_DETAILS = updated_details
+        return updated_details
+
+    updated_details["location_city"] = payload.get("city") or "Unknown"
+    updated_details["location_country_code"] = payload.get("countryCode") or ""
+    updated_details["isp"] = payload.get("isp") or "Unknown"
+
+    LAST_IP_DETAILS = updated_details
+    return updated_details
 
 def get_system_data():
     # Configure InfluxDB connection
@@ -29,7 +93,7 @@ def get_system_data():
     internet_query = '''
     from(bucket: "homelab")
     |> range(start: -1h)
-    |> filter(fn: (r) => r["_field"] == "download" or r["_field"] == "upload" or r["_field"] == "location" or r["_field"] == "latency")
+    |> filter(fn: (r) => r["_field"] == "download" or r["_field"] == "upload" or r["_field"] == "latency")
     |> last()
     '''
 
@@ -75,7 +139,6 @@ def get_system_data():
     data = {
         'download': 0,
         'upload': 0,
-        'location': "Unknown",
         'latency': 0,
         'ups_status': "Unknown",
         'load_percent': 0,
@@ -87,7 +150,11 @@ def get_system_data():
         'internal_temp': 0,
         'cpu_temp': 0,
         'nvme_0100_temp': 0,
-        'nvme_8100_temp': 0
+        'nvme_8100_temp': 0,
+        'public_ip': "Unknown",
+        'location_city': "Unknown",
+        'location_country_code': "",
+        'isp': "Unknown"
     }
     
     try:
@@ -124,6 +191,9 @@ def get_system_data():
                         data['nvme_0100_temp'] = record.get_value()
                     elif chip == "nvme-pci-8100":
                         data['nvme_8100_temp'] = record.get_value()
+
+        ip_details = get_ip_details()
+        data.update(ip_details)
 
         return data
     finally:
@@ -226,9 +296,15 @@ def main():
             background_color=(0, 0, 0)
         )
 
-        # Display location on the next line
+        location_parts = []
+        if data['location_city'] not in ("", "Unknown"):
+            location_parts.append(data['location_city'])
+        if data['location_country_code']:
+            location_parts.append(data['location_country_code'])
+        location_value = "-".join(location_parts) if location_parts else "Unknown"
+
         lcd_comm.DisplayText(
-            text=f"Location: {data['location']}",
+            text=f"WAN IP: {data['public_ip']}",
             x=5,
             y=90,
             font="roboto/Roboto-Regular.ttf",
@@ -238,7 +314,7 @@ def main():
         )
 
         lcd_comm.DisplayText(
-            text=f"Latency: {data['latency']:.0f}ms",
+            text=f"Location: {location_value}",
             x=5,
             y=110,
             font="roboto/Roboto-Regular.ttf",
@@ -247,12 +323,22 @@ def main():
             background_color=(0, 0, 0)
         )
 
+        lcd_comm.DisplayText(
+            text=f"ISP: {data['isp']}",
+            x=5,
+            y=130,
+            font="roboto/Roboto-Regular.ttf",
+            font_size=20,
+            font_color=WHITE,
+            background_color=(0, 0, 0)
+        )
+
         # Display internet metrics in a single line with symbols
-        internet_metrics = f"Up: {data['upload']:.1f}  |  Down:{data['download']:.1f}"
+        internet_metrics = f"Speed Test: {data['upload']:.0f} UP / {data['download']:.0f} DOWN"
         lcd_comm.DisplayText(
             text=internet_metrics,
             x=5,
-            y=130,
+            y=150,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
