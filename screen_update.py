@@ -410,7 +410,7 @@ def main():
         # Display CPU gauge
         lcd_comm.DisplayText(
             text=cpu_gauge,
-            x=80,
+            x=100,
             y=350,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
@@ -420,7 +420,7 @@ def main():
 
         mem_gauge, mem_color = create_temp_gauge(
             data['memory_usage'],
-            min_temp=0,
+            min_temp=00,
             max_temp=100,
             width=20
         )
@@ -439,7 +439,7 @@ def main():
         # Display memory gauge
         lcd_comm.DisplayText(
             text=mem_gauge,
-            x=80,
+            x=120,
             y=370,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
