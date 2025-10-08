@@ -3,8 +3,6 @@ import os
 import time
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
-
-import psutil
 from dotenv import load_dotenv
 from library.lcd.lcd_comm import Orientation
 from library.lcd.lcd_comm_rev_a import LcdCommRevA
@@ -24,6 +22,9 @@ IPIFY_URL = os.getenv("IPIFY_URL", "https://api.ipify.org?format=json")
 IP_API_URL_TEMPLATE = os.getenv(
     "IP_API_URL", "http://ip-api.com/json/{ip}?fields=status,message,city,countryCode,isp"
 )
+MEM_USAGE_MEASUREMENT = os.getenv("HOST_MEMORY_MEASUREMENT", "mem")
+MEM_USAGE_FIELD = os.getenv("HOST_MEMORY_FIELD", "used_percent")
+MEM_USAGE_HOST = os.getenv("HOST_MEMORY_HOST")
 LAST_IP_DETAILS = {
     "public_ip": "Unknown",
     "location_city": "Unknown",
@@ -137,6 +138,17 @@ def get_system_data():
     |> last()
     '''
 
+    memory_query_lines = [
+        'from(bucket: "homelab")',
+        '|> range(start: -1m)',
+        f'|> filter(fn: (r) => r["_measurement"] == "{MEM_USAGE_MEASUREMENT}")',
+        f'|> filter(fn: (r) => r["_field"] == "{MEM_USAGE_FIELD}")',
+    ]
+    if MEM_USAGE_HOST:
+        memory_query_lines.append(f'|> filter(fn: (r) => r["host"] == "{MEM_USAGE_HOST}")')
+    memory_query_lines.append('|> last()')
+    memory_query = "\n".join(memory_query_lines)
+
     # Initialize values
     data = {
         'download': 0,
@@ -195,13 +207,16 @@ def get_system_data():
                     elif chip == "nvme-pci-8100":
                         data['nvme_8100_temp'] = record.get_value()
 
+        tables = client.query_api().query(memory_query)
+        for table in tables:
+            for record in table.records:
+                if record.get_field() == MEM_USAGE_FIELD:
+                    value = record.get_value()
+                    if value is not None:
+                        data['memory_usage'] = float(value)
+
         ip_details = get_ip_details()
         data.update(ip_details)
-
-        try:
-            data['memory_usage'] = float(psutil.virtual_memory().percent)
-        except Exception:
-            pass
 
         return data
     finally:
@@ -394,7 +409,7 @@ def main():
         )
         
         # Create temperature gauge
-        cpu_gauge, cpu_color = create_temp_gauge(data['cpu_temp'])
+        cpu_gauge, cpu_color = create_temp_gauge(data['cpu_temp'], width=10)
 
         # Display temperature value
         lcd_comm.DisplayText(
@@ -420,9 +435,9 @@ def main():
 
         mem_gauge, mem_color = create_temp_gauge(
             data['memory_usage'],
-            min_temp=00,
+            min_temp=0,
             max_temp=100,
-            width=20
+            width=10
         )
 
         # Display memory usage value
@@ -439,7 +454,7 @@ def main():
         # Display memory gauge
         lcd_comm.DisplayText(
             text=mem_gauge,
-            x=120,
+            x=100,
             y=370,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
