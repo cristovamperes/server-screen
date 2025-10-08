@@ -324,7 +324,7 @@ def main():
         )
 
         lcd_comm.DisplayText(
-            text=f"ISP: {data['isp']}",
+            text=f"ISP: {str(data['isp']).capitalize()}",
             x=5,
             y=130,
             font="roboto/Roboto-Regular.ttf",
@@ -347,7 +347,7 @@ def main():
 
         # UPS Status Section
         lcd_comm.DisplayText(
-            text="UPS",
+            text="NO-BREAK",
             x=5,
             y=190,
             font="roboto/Roboto-Bold.ttf",
