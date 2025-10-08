@@ -28,7 +28,7 @@ MEM_USAGE_HOST = os.getenv("HOST_MEMORY_HOST")
 try:
     GAUGE_WIDTH = int(os.getenv("GAUGE_WIDTH", "12"))
 except ValueError:
-    GAUGE_WIDTH = 12
+    GAUGE_WIDTH = 14
 LAST_IP_DETAILS = {
     "public_ip": "Unknown",
     "location_city": "Unknown",
