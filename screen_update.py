@@ -425,7 +425,7 @@ def main():
         # Display CPU gauge
         lcd_comm.DisplayText(
             text=cpu_gauge,
-            x=100,
+            x=150,
             y=350,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
@@ -454,7 +454,7 @@ def main():
         # Display memory gauge
         lcd_comm.DisplayText(
             text=mem_gauge,
-            x=100,
+            x=150,
             y=370,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
