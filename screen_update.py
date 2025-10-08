@@ -425,7 +425,7 @@ def main():
         # Display CPU gauge
         lcd_comm.DisplayText(
             text=cpu_gauge,
-            x=150,
+            x=170,
             y=350,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
@@ -442,7 +442,7 @@ def main():
 
         # Display memory usage value
         lcd_comm.DisplayText(
-            text=f"Memory: {data['memory_usage']:.1f}%",
+            text=f"RAM Usage: {data['memory_usage']:.1f}%",
             x=5,
             y=370,
             font="roboto/Roboto-Regular.ttf",
@@ -454,7 +454,7 @@ def main():
         # Display memory gauge
         lcd_comm.DisplayText(
             text=mem_gauge,
-            x=150,
+            x=170,
             y=370,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
