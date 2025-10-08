@@ -431,7 +431,7 @@ def main():
             text=cpu_gauge,
             x=180,
             y=350,
-            font="roboto/Roboto-Regular.ttf",
+            font="roboto-mono/RobotoMono-Regular.ttf",
             font_size=20,
             font_color=cpu_color,
             background_color=(0, 0, 0)
@@ -460,7 +460,7 @@ def main():
             text=mem_gauge,
             x=180,
             y=370,
-            font="roboto/Roboto-Regular.ttf",
+            font="roboto-mono/RobotoMono-Regular.ttf",
             font_size=20,
             font_color=mem_color,
             background_color=(0, 0, 0)
