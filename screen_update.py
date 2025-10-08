@@ -26,7 +26,7 @@ MEM_USAGE_MEASUREMENT = os.getenv("HOST_MEMORY_MEASUREMENT", "mem")
 MEM_USAGE_FIELD = os.getenv("HOST_MEMORY_FIELD", "used_percent")
 MEM_USAGE_HOST = os.getenv("HOST_MEMORY_HOST")
 try:
-    GAUGE_WIDTH = int(os.getenv("GAUGE_WIDTH", "12"))
+    GAUGE_WIDTH = int(os.getenv("GAUGE_WIDTH", "14"))
 except ValueError:
     GAUGE_WIDTH = 14
 LAST_IP_DETAILS = {
