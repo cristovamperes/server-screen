@@ -25,6 +25,10 @@ IP_API_URL_TEMPLATE = os.getenv(
 MEM_USAGE_MEASUREMENT = os.getenv("HOST_MEMORY_MEASUREMENT", "mem")
 MEM_USAGE_FIELD = os.getenv("HOST_MEMORY_FIELD", "used_percent")
 MEM_USAGE_HOST = os.getenv("HOST_MEMORY_HOST")
+try:
+    GAUGE_WIDTH = int(os.getenv("GAUGE_WIDTH", "12"))
+except ValueError:
+    GAUGE_WIDTH = 12
 LAST_IP_DETAILS = {
     "public_ip": "Unknown",
     "location_city": "Unknown",
@@ -409,7 +413,7 @@ def main():
         )
         
         # Create temperature gauge
-        cpu_gauge, cpu_color = create_temp_gauge(data['cpu_temp'], width=10)
+        cpu_gauge, cpu_color = create_temp_gauge(data['cpu_temp'], width=GAUGE_WIDTH)
 
         # Display temperature value
         lcd_comm.DisplayText(
@@ -425,7 +429,7 @@ def main():
         # Display CPU gauge
         lcd_comm.DisplayText(
             text=cpu_gauge,
-            x=170,
+            x=180,
             y=350,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
@@ -437,7 +441,7 @@ def main():
             data['memory_usage'],
             min_temp=0,
             max_temp=100,
-            width=10
+            width=GAUGE_WIDTH
         )
 
         # Display memory usage value
@@ -454,7 +458,7 @@ def main():
         # Display memory gauge
         lcd_comm.DisplayText(
             text=mem_gauge,
-            x=170,
+            x=180,
             y=370,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
