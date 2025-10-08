@@ -3,6 +3,8 @@ import os
 import time
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
+
+import psutil
 from dotenv import load_dotenv
 from library.lcd.lcd_comm import Orientation
 from library.lcd.lcd_comm_rev_a import LcdCommRevA
@@ -154,7 +156,8 @@ def get_system_data():
         'public_ip': "Unknown",
         'location_city': "Unknown",
         'location_country_code': "",
-        'isp': "Unknown"
+        'isp': "Unknown",
+        'memory_usage': 0.0
     }
     
     try:
@@ -194,6 +197,11 @@ def get_system_data():
 
         ip_details = get_ip_details()
         data.update(ip_details)
+
+        try:
+            data['memory_usage'] = float(psutil.virtual_memory().percent)
+        except Exception:
+            pass
 
         return data
     finally:
@@ -376,7 +384,7 @@ def main():
 
         # CPU Temperature Section
         lcd_comm.DisplayText(
-            text="CPU",
+            text="SERVER",
             x=5,
             y=320,
             font="roboto/Roboto-Bold.ttf",
@@ -386,11 +394,11 @@ def main():
         )
         
         # Create temperature gauge
-        gauge, gauge_color = create_temp_gauge(data['cpu_temp'])
-        
+        cpu_gauge, cpu_color = create_temp_gauge(data['cpu_temp'])
+
         # Display temperature value
         lcd_comm.DisplayText(
-            text=f"{data['cpu_temp']:.1f}°C",
+            text=f"CPU Temp: {data['cpu_temp']:.1f}C",
             x=5,
             y=350,
             font="roboto/Roboto-Regular.ttf",
@@ -398,15 +406,44 @@ def main():
             font_color=WHITE,
             background_color=(0, 0, 0)
         )
-        
-        # Display gauge
+
+        # Display CPU gauge
         lcd_comm.DisplayText(
-            text=gauge,
-            x=80,  # Adjusted x position to align with temperature
+            text=cpu_gauge,
+            x=80,
             y=350,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
-            font_color=gauge_color,
+            font_color=cpu_color,
+            background_color=(0, 0, 0)
+        )
+
+        mem_gauge, mem_color = create_temp_gauge(
+            data['memory_usage'],
+            min_temp=0,
+            max_temp=100,
+            width=20
+        )
+
+        # Display memory usage value
+        lcd_comm.DisplayText(
+            text=f"Memory: {data['memory_usage']:.1f}%",
+            x=5,
+            y=370,
+            font="roboto/Roboto-Regular.ttf",
+            font_size=20,
+            font_color=WHITE,
+            background_color=(0, 0, 0)
+        )
+
+        # Display memory gauge
+        lcd_comm.DisplayText(
+            text=mem_gauge,
+            x=80,
+            y=370,
+            font="roboto/Roboto-Regular.ttf",
+            font_size=20,
+            font_color=mem_color,
             background_color=(0, 0, 0)
         )
 
@@ -414,7 +451,7 @@ def main():
         lcd_comm.DisplayText(
             text="NVME",
             x=5,
-            y=390,
+            y=410,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_YELLOW,
@@ -425,7 +462,7 @@ def main():
         lcd_comm.DisplayText(
             text=f"SK Hynix: {data['nvme_0100_temp']:.1f}°C  |  990 Evo: {data['nvme_8100_temp']:.1f}°C",
             x=5,
-            y=420,
+            y=440,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
