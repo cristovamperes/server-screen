@@ -226,7 +226,7 @@ def get_system_data():
     finally:
         client.close()
 
-def create_temp_gauge(temp, min_temp=30, max_temp=90, width=20):
+def create_temp_gauge(temp, min_temp=30, max_temp=90, width=10):
     """
     Creates a text-based temperature gauge
     Example: [####----] 65°C
@@ -413,7 +413,7 @@ def main():
         )
         
         # Create temperature gauge
-        cpu_gauge, cpu_color = create_temp_gauge(data['cpu_temp'], width=GAUGE_WIDTH)
+        cpu_gauge, cpu_color = create_temp_gauge(data['cpu_temp'],width=GAUGE_WIDTH)
 
         # Display temperature value
         lcd_comm.DisplayText(
