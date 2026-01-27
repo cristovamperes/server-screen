@@ -49,12 +49,12 @@ NVME_8100_CHIP = os.getenv("NVME_8100_CHIP", "nvme-pci-8100")
 # - 20px between consecutive rows (e.g. Load -> Input)
 SERVERS_Y = 300
 LABEL_COL_X = 5
-LABEL_COL_W = 110
-SMALL_COL_X = 120
-SMALL_COL_W = 80
-DIVIDER_X = 207
-BIG_COL_X = 215
-BIG_COL_W = 100
+LABEL_COL_W = 120
+SMALL_COL_X = 145
+SMALL_COL_W = 70
+DIVIDER_X = 218
+BIG_COL_X = 225
+BIG_COL_W = 90
 ROW_H = 28
 TABLE_FONT_SIZE = 20
 SECTION_FONT_SIZE = 24
@@ -356,11 +356,23 @@ def main():
 
         # Servers Section (two columns)
         lcd_comm.DisplayText(
-            text="SMALL  |  BIG",
-            # Only draw on the right side so we don't overwrite the SERVERS label.
+            text="SERVERS",
+            x=LABEL_COL_X,
+            y=SERVERS_Y,
+            width=LABEL_COL_W,
+            height=ROW_H,
+            font="roboto/Roboto-Bold.ttf",
+            font_size=SECTION_FONT_SIZE,
+            font_color=LIGHT_BLUE,
+            background_color=(0, 0, 0),
+            align="left",
+            anchor="lt",
+        )
+        lcd_comm.DisplayText(
+            text="SMALL",
             x=SMALL_COL_X,
             y=SERVERS_Y,
-            width=(320 - LABEL_COL_X) - SMALL_COL_X,
+            width=SMALL_COL_W,
             height=ROW_H,
             font="roboto/Roboto-Bold.ttf",
             font_size=SECTION_FONT_SIZE,
@@ -370,14 +382,26 @@ def main():
             anchor="rt",
         )
         lcd_comm.DisplayText(
-            text="SERVERS",
-            x=LABEL_COL_X,
+            text="|",
+            x=DIVIDER_X,
             y=SERVERS_Y,
             font="roboto/Roboto-Bold.ttf",
             font_size=SECTION_FONT_SIZE,
-            font_color=LIGHT_BLUE,
+            font_color=WHITE,
             background_color=(0, 0, 0),
-            anchor="lt",
+        )
+        lcd_comm.DisplayText(
+            text="BIG",
+            x=BIG_COL_X,
+            y=SERVERS_Y,
+            width=BIG_COL_W,
+            height=ROW_H,
+            font="roboto/Roboto-Bold.ttf",
+            font_size=SECTION_FONT_SIZE,
+            font_color=WHITE,
+            background_color=(0, 0, 0),
+            align="right",
+            anchor="rt",
         )
 
         row1_y = SERVERS_Y + HEADER_TO_FIRST_ROW_GAP
@@ -482,7 +506,7 @@ def main():
         )
 
         # NVME Temperature Section
-        nvme_y = row2_y + ROW_GAP + SECTION_TO_SECTION_GAP
+        nvme_y = row2_y + SECTION_TO_SECTION_GAP
         nvme_line_y = nvme_y + HEADER_TO_FIRST_ROW_GAP
         lcd_comm.DisplayText(
             text="NVME",
