@@ -5,6 +5,8 @@ import time
 from dotenv import load_dotenv
 from influxdb_client import InfluxDBClient
 from PIL import Image
+from urllib.error import HTTPError, URLError
+from urllib.request import urlopen
 
 from library.lcd.lcd_comm import Orientation
 from library.lcd.lcd_comm_rev_a import LcdCommRevA
@@ -18,6 +20,18 @@ LIGHT_BLUE = (135, 206, 235)    # Sky blue
 LIGHT_GREEN = (144, 238, 144)   # Light green
 LIGHT_RED = (255, 160, 160)     # Light red for CPU temp
 LIGHT_YELLOW = (255, 255, 153)   # Light yellow for CPU temp
+
+# WAN/IP details (same approach as `origin/main`)
+IPIFY_URL = os.getenv("IPIFY_URL", "https://api.ipify.org?format=json")
+IP_API_URL_TEMPLATE = os.getenv(
+    "IP_API_URL", "http://ip-api.com/json/{ip}?fields=status,message,city,countryCode,isp"
+)
+LAST_IP_DETAILS = {
+    "public_ip": "Unknown",
+    "location_city": "Unknown",
+    "location_country_code": "",
+    "isp": "Unknown",
+}
 
 # Influx / host config
 INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "homelab")
@@ -63,6 +77,52 @@ ROW_GAP = 20
 
 FONT_TABLE = "roboto/Roboto-Regular.ttf"
 FONT_TABLE_BOLD = "roboto/Roboto-Bold.ttf"
+
+
+def get_public_ip():
+    try:
+        with urlopen(IPIFY_URL, timeout=5) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            return payload.get("ip", "Unknown")
+    except (URLError, HTTPError, TimeoutError, json.JSONDecodeError):
+        return "Unknown"
+
+
+def get_ip_details():
+    global LAST_IP_DETAILS
+    cached_details = LAST_IP_DETAILS.copy()
+
+    ip = get_public_ip()
+    if ip == "Unknown":
+        return cached_details
+
+    updated_details = cached_details.copy()
+    updated_details["public_ip"] = ip
+
+    try:
+        url = IP_API_URL_TEMPLATE.format(ip=ip)
+    except KeyError:
+        LAST_IP_DETAILS = updated_details
+        return updated_details
+
+    try:
+        with urlopen(url, timeout=5) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (URLError, HTTPError, TimeoutError, json.JSONDecodeError):
+        LAST_IP_DETAILS = updated_details
+        return updated_details
+
+    if payload.get("status") != "success":
+        LAST_IP_DETAILS = updated_details
+        return updated_details
+
+    updated_details["location_city"] = payload.get("city") or "Unknown"
+    updated_details["location_country_code"] = payload.get("countryCode") or ""
+    updated_details["isp"] = payload.get("isp") or "Unknown"
+
+    LAST_IP_DETAILS = updated_details
+    return updated_details
+
 
 def get_system_data():
     # Configure InfluxDB connection
@@ -242,6 +302,13 @@ def main():
     while True:
         # Get latest data
         data = get_system_data()
+
+        # Prefer WAN/IP-derived ISP/location (fallback to last successful values)
+        ip_details = get_ip_details()
+        if ip_details.get("location_city") and ip_details["location_city"] != "Unknown":
+            data["location"] = ip_details["location_city"]
+        if ip_details.get("isp") and ip_details["isp"] != "Unknown":
+            data["isp"] = ip_details["isp"]
         
         # Create and display black background
         black_bg = Image.new('RGB', (320, 480), color=(0, 0, 0))
