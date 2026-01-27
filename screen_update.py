@@ -351,20 +351,11 @@ def main():
 
         # Servers Section (two columns)
         lcd_comm.DisplayText(
-            text="SERVERS",
-            x=5,
-            y=SERVERS_Y,
-            font="roboto/Roboto-Bold.ttf",
-            font_size=SECTION_FONT_SIZE,
-            font_color=LIGHT_BLUE,
-            background_color=(0, 0, 0),
-            anchor="lt",
-        )
-        lcd_comm.DisplayText(
             text="SMALL  |  BIG",
-            x=LABEL_COL_X,
+            # Only draw on the right side so we don't overwrite the SERVERS label.
+            x=SMALL_COL_X,
             y=SERVERS_Y,
-            width=320 - 2 * LABEL_COL_X,
+            width=(320 - LABEL_COL_X) - SMALL_COL_X,
             height=ROW_H,
             font="roboto/Roboto-Bold.ttf",
             font_size=SECTION_FONT_SIZE,
@@ -372,6 +363,16 @@ def main():
             background_color=(0, 0, 0),
             align="right",
             anchor="rt",
+        )
+        lcd_comm.DisplayText(
+            text="SERVERS",
+            x=LABEL_COL_X,
+            y=SERVERS_Y,
+            font="roboto/Roboto-Bold.ttf",
+            font_size=SECTION_FONT_SIZE,
+            font_color=LIGHT_BLUE,
+            background_color=(0, 0, 0),
+            anchor="lt",
         )
 
         row1_y = SERVERS_Y + 34
