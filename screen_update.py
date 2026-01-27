@@ -76,7 +76,7 @@ def get_system_data():
     internet_query = f'''
     from(bucket: "{INFLUXDB_BUCKET}")
     |> range(start: -1h)
-    |> filter(fn: (r) => r["_field"] == "download" or r["_field"] == "upload" or r["_field"] == "location" or r["_field"] == "latency")
+    |> filter(fn: (r) => r["_field"] == "download" or r["_field"] == "upload" or r["_field"] == "location" or r["_field"] == "latency" or r["_field"] == "isp")
     |> last()
     '''
 
@@ -145,6 +145,7 @@ def get_system_data():
         'download': 0,
         'upload': 0,
         'location': "Unknown",
+        'isp': "Unknown",
         'latency': 0,
         'ups_status': "Unknown",
         'load_percent': 0,
@@ -302,9 +303,19 @@ def main():
         )
 
         lcd_comm.DisplayText(
-            text=f"Latency: {data['latency']:.0f}ms",
+            text=f"ISP: {data['isp']}",
             x=5,
             y=110,
+            font="roboto/Roboto-Regular.ttf",
+            font_size=20,
+            font_color=WHITE,
+            background_color=(0, 0, 0)
+        )
+
+        lcd_comm.DisplayText(
+            text=f"Latency: {data['latency']:.0f}ms",
+            x=5,
+            y=130,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -316,7 +327,7 @@ def main():
         lcd_comm.DisplayText(
             text=internet_metrics,
             x=5,
-            y=130,
+            y=150,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -498,7 +509,7 @@ def main():
             background_color=(0, 0, 0),
         )
         lcd_comm.DisplayText(
-            text=f"SK Hynix: {_format_temp(data.get('nvme_0100_temp'))}  |  990 Evo: {_format_temp(data.get('nvme_8100_temp'))}",
+            text=f"UMIS: {_format_temp(data.get('nvme_0100_temp'))}  |  990 Evo: {_format_temp(data.get('nvme_8100_temp'))}",
             x=5,
             y=nvme_line_y,
             font="roboto/Roboto-Regular.ttf",
