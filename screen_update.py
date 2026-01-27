@@ -36,6 +36,12 @@ SERVER_TEMP_FEATURE = os.getenv("SERVER_TEMP_FEATURE", "package_id_0")
 SERVER_RAM_MEASUREMENT = os.getenv("SERVER_RAM_MEASUREMENT", "mem")
 SERVER_RAM_FIELD = os.getenv("SERVER_RAM_FIELD", "used_percent")
 
+# NVME temps (defaults assume the drives exist on BIGSERVER)
+NVME_SERVER_ALIAS = os.getenv("NVME_SERVER_ALIAS", BIGSERVER_ALIAS)
+NVME_TEMP_FEATURE = os.getenv("NVME_TEMP_FEATURE", "composite")
+NVME_0100_CHIP = os.getenv("NVME_0100_CHIP", "nvme-pci-0100")
+NVME_8100_CHIP = os.getenv("NVME_8100_CHIP", "nvme-pci-8100")
+
 # Layout constants (320x480 portrait)
 SERVERS_Y = 300
 LABEL_COL_X = 5
@@ -45,11 +51,15 @@ SMALL_COL_W = 100
 DIVIDER_X = 210
 BIG_COL_X = 220
 BIG_COL_W = 95
-ROW_H = 22
-TABLE_FONT_SIZE = 18
+ROW_H = 28
+TABLE_FONT_SIZE = 20
+SECTION_FONT_SIZE = 24
 
-FONT_TABLE = "roboto-mono/RobotoMono-Regular.ttf"
-FONT_TABLE_BOLD = "roboto-mono/RobotoMono-Bold.ttf"
+NVME_Y = 385
+NVME_LINE_Y = 415
+
+FONT_TABLE = "roboto/Roboto-Regular.ttf"
+FONT_TABLE_BOLD = "roboto/Roboto-Bold.ttf"
 
 def get_system_data():
     # Configure InfluxDB connection
@@ -115,6 +125,18 @@ def get_system_data():
         |> last()
         '''
 
+    def _server_nvme_temp_query(server_alias: str, chip_value: str) -> str:
+        return f'''
+        from(bucket: "{INFLUXDB_BUCKET}")
+        |> range(start: -5m)
+        |> filter(fn: (r) => r["_measurement"] == "{SERVER_TEMP_MEASUREMENT}")
+        |> filter(fn: (r) => r["_field"] == "{SERVER_TEMP_FIELD}")
+        |> filter(fn: (r) => {_server_eq(server_alias)})
+        |> filter(fn: (r) => r["chip"] == "{chip_value}")
+        |> filter(fn: (r) => r["feature"] == "{NVME_TEMP_FEATURE}")
+        |> last()
+        '''
+
     # Initialize values
     data = {
         'download': 0,
@@ -132,7 +154,9 @@ def get_system_data():
         'smallserver_cpu_temp': None,
         'bigserver_cpu_temp': None,
         'smallserver_ram_used_percent': None,
-        'bigserver_ram_used_percent': None
+        'bigserver_ram_used_percent': None,
+        'nvme_0100_temp': None,
+        'nvme_8100_temp': None,
     }
     
     try:
@@ -157,6 +181,10 @@ def get_system_data():
         data['bigserver_cpu_temp'] = _query_last_value(_server_cpu_temp_query(BIGSERVER_ALIAS))
         data['smallserver_ram_used_percent'] = _query_last_value(_server_ram_used_query(SMALLSERVER_ALIAS))
         data['bigserver_ram_used_percent'] = _query_last_value(_server_ram_used_query(BIGSERVER_ALIAS))
+
+        # NVME temps (typically on BIGSERVER, configurable)
+        data['nvme_0100_temp'] = _query_last_value(_server_nvme_temp_query(NVME_SERVER_ALIAS, NVME_0100_CHIP))
+        data['nvme_8100_temp'] = _query_last_value(_server_nvme_temp_query(NVME_SERVER_ALIAS, NVME_8100_CHIP))
 
         return data
     finally:
@@ -323,43 +351,52 @@ def main():
 
         # Servers Section (two columns)
         lcd_comm.DisplayText(
-            text="SMALLSERVER",
+            text="SERVERS",
+            x=5,
+            y=SERVERS_Y,
+            font="roboto/Roboto-Bold.ttf",
+            font_size=SECTION_FONT_SIZE,
+            font_color=LIGHT_BLUE,
+            background_color=(0, 0, 0),
+        )
+        lcd_comm.DisplayText(
+            text="SMALL",
             x=SMALL_COL_X,
             y=SERVERS_Y,
             width=SMALL_COL_W,
             height=ROW_H,
             font=FONT_TABLE_BOLD,
-            font_size=TABLE_FONT_SIZE,
-            font_color=LIGHT_BLUE,
+            font_size=SECTION_FONT_SIZE,
+            font_color=WHITE,
             background_color=(0, 0, 0),
-            align="center",
-            anchor="mt",
+            align="right",
+            anchor="rt",
         )
         lcd_comm.DisplayText(
             text="|",
             x=DIVIDER_X,
             y=SERVERS_Y,
             font=FONT_TABLE_BOLD,
-            font_size=TABLE_FONT_SIZE,
+            font_size=SECTION_FONT_SIZE,
             font_color=WHITE,
             background_color=(0, 0, 0),
         )
         lcd_comm.DisplayText(
-            text="BIGSERVER",
+            text="BIG",
             x=BIG_COL_X,
             y=SERVERS_Y,
             width=BIG_COL_W,
             height=ROW_H,
             font=FONT_TABLE_BOLD,
-            font_size=TABLE_FONT_SIZE,
-            font_color=LIGHT_BLUE,
+            font_size=SECTION_FONT_SIZE,
+            font_color=WHITE,
             background_color=(0, 0, 0),
-            align="center",
-            anchor="mt",
+            align="right",
+            anchor="rt",
         )
 
-        row1_y = SERVERS_Y + 26
-        row2_y = row1_y + 22
+        row1_y = SERVERS_Y + 34
+        row2_y = row1_y + 26
 
         lcd_comm.DisplayText(
             text="CPU Temp",
@@ -457,6 +494,26 @@ def main():
             background_color=(0, 0, 0),
             align="right",
             anchor="rt",
+        )
+
+        # NVME Temperature Section
+        lcd_comm.DisplayText(
+            text="NVME",
+            x=5,
+            y=NVME_Y,
+            font="roboto/Roboto-Bold.ttf",
+            font_size=SECTION_FONT_SIZE,
+            font_color=LIGHT_YELLOW,
+            background_color=(0, 0, 0),
+        )
+        lcd_comm.DisplayText(
+            text=f"SK Hynix: {_format_temp(data.get('nvme_0100_temp'))}  |  990 Evo: {_format_temp(data.get('nvme_8100_temp'))}",
+            x=5,
+            y=NVME_LINE_Y,
+            font="roboto/Roboto-Regular.ttf",
+            font_size=20,
+            font_color=WHITE,
+            background_color=(0, 0, 0),
         )
 
         time.sleep(30)
