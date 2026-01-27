@@ -1,11 +1,13 @@
+import json
 import os
 import time
+
 from dotenv import load_dotenv
+from influxdb_client import InfluxDBClient
+from PIL import Image
+
 from library.lcd.lcd_comm import Orientation
 from library.lcd.lcd_comm_rev_a import LcdCommRevA
-from PIL import Image
-from influxdb_client import InfluxDBClient
-from dotenv import load_dotenv
 
 # Load environment variables at the start of your script
 load_dotenv()
@@ -17,6 +19,38 @@ LIGHT_GREEN = (144, 238, 144)   # Light green
 LIGHT_RED = (255, 160, 160)     # Light red for CPU temp
 LIGHT_YELLOW = (255, 255, 153)   # Light yellow for CPU temp
 
+# Influx / host config
+INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "homelab")
+# Name of the Influx tag that identifies which server a metric belongs to.
+# You mentioned you created a `server_alias` tag, so that's the default.
+INFLUXDB_SERVER_TAG = os.getenv("INFLUXDB_SERVER_TAG", os.getenv("INFLUXDB_HOST_TAG", "server_alias"))
+
+SMALLSERVER_ALIAS = os.getenv("SMALLSERVER_ALIAS", os.getenv("SMALLSERVER_HOST", "smallserver"))
+BIGSERVER_ALIAS = os.getenv("BIGSERVER_ALIAS", os.getenv("BIGSERVER_HOST", "bigserver"))
+
+SERVER_TEMP_MEASUREMENT = os.getenv("SERVER_TEMP_MEASUREMENT", "sensors")
+SERVER_TEMP_FIELD = os.getenv("SERVER_TEMP_FIELD", "temp_input")
+SERVER_TEMP_CHIP = os.getenv("SERVER_TEMP_CHIP", "coretemp-isa-0000")
+SERVER_TEMP_FEATURE = os.getenv("SERVER_TEMP_FEATURE", "package_id_0")
+
+SERVER_RAM_MEASUREMENT = os.getenv("SERVER_RAM_MEASUREMENT", "mem")
+SERVER_RAM_FIELD = os.getenv("SERVER_RAM_FIELD", "used_percent")
+
+# Layout constants (320x480 portrait)
+SERVERS_Y = 300
+LABEL_COL_X = 5
+LABEL_COL_W = 95
+SMALL_COL_X = 105
+SMALL_COL_W = 100
+DIVIDER_X = 210
+BIG_COL_X = 220
+BIG_COL_W = 95
+ROW_H = 22
+TABLE_FONT_SIZE = 18
+
+FONT_TABLE = "roboto-mono/RobotoMono-Regular.ttf"
+FONT_TABLE_BOLD = "roboto-mono/RobotoMono-Bold.ttf"
+
 def get_system_data():
     # Configure InfluxDB connection
     client = InfluxDBClient(
@@ -26,16 +60,16 @@ def get_system_data():
     )
 
     # Internet metrics query
-    internet_query = '''
-    from(bucket: "homelab")
+    internet_query = f'''
+    from(bucket: "{INFLUXDB_BUCKET}")
     |> range(start: -1h)
     |> filter(fn: (r) => r["_field"] == "download" or r["_field"] == "upload" or r["_field"] == "location" or r["_field"] == "latency")
     |> last()
     '''
 
     # UPS metrics query
-    ups_query = '''
-    from(bucket: "homelab")
+    ups_query = f'''
+    from(bucket: "{INFLUXDB_BUCKET}")
     |> range(start: -1m)
     |> filter(fn: (r) => r["_measurement"] == "upsd")
     |> filter(fn: (r) => r["_field"] == "ups_status" or 
@@ -49,27 +83,37 @@ def get_system_data():
     |> last()
     '''
 
-    # CPU temperature query
-    cpu_temp_query = '''
-    from(bucket: "homelab")
-    |> range(start: -1m)
-    |> filter(fn: (r) => r["_measurement"] == "sensors")
-    |> filter(fn: (r) => r["_field"] == "temp_input")
-    |> filter(fn: (r) => r["chip"] == "coretemp-isa-0000")
-    |> filter(fn: (r) => r["feature"] == "package_id_0")
-    |> last()
-    '''
+    def _query_last_value(query: str):
+        tables = client.query_api().query(query)
+        for table in tables:
+            for record in table.records:
+                return record.get_value()
+        return None
 
-    # NVME temperature query
-    nvme_temp_query = '''
-    from(bucket: "homelab")
-    |> range(start: -1m)
-    |> filter(fn: (r) => r["_measurement"] == "sensors")
-    |> filter(fn: (r) => r["_field"] == "temp_input")
-    |> filter(fn: (r) => r["chip"] == "nvme-pci-0100" or r["chip"] == "nvme-pci-8100")
-    |> filter(fn: (r) => r["feature"] == "composite")
-    |> last()
-    '''
+    def _server_eq(server_alias: str) -> str:
+        return f'r["{INFLUXDB_SERVER_TAG}"] == {json.dumps(server_alias)}'
+
+    def _server_cpu_temp_query(host_value: str) -> str:
+        return f'''
+        from(bucket: "{INFLUXDB_BUCKET}")
+        |> range(start: -5m)
+        |> filter(fn: (r) => r["_measurement"] == "{SERVER_TEMP_MEASUREMENT}")
+        |> filter(fn: (r) => r["_field"] == "{SERVER_TEMP_FIELD}")
+        |> filter(fn: (r) => {_server_eq(host_value)})
+        |> filter(fn: (r) => r["chip"] == "{SERVER_TEMP_CHIP}")
+        |> filter(fn: (r) => r["feature"] == "{SERVER_TEMP_FEATURE}")
+        |> last()
+        '''
+
+    def _server_ram_used_query(host_value: str) -> str:
+        return f'''
+        from(bucket: "{INFLUXDB_BUCKET}")
+        |> range(start: -5m)
+        |> filter(fn: (r) => r["_measurement"] == "{SERVER_RAM_MEASUREMENT}")
+        |> filter(fn: (r) => r["_field"] == "{SERVER_RAM_FIELD}")
+        |> filter(fn: (r) => {_server_eq(host_value)})
+        |> last()
+        '''
 
     # Initialize values
     data = {
@@ -85,9 +129,10 @@ def get_system_data():
         'input_voltage': 0,
         'output_voltage': 0,
         'internal_temp': 0,
-        'cpu_temp': 0,
-        'nvme_0100_temp': 0,
-        'nvme_8100_temp': 0
+        'smallserver_cpu_temp': None,
+        'bigserver_cpu_temp': None,
+        'smallserver_ram_used_percent': None,
+        'bigserver_ram_used_percent': None
     }
     
     try:
@@ -107,57 +152,45 @@ def get_system_data():
                 if field in data:
                     data[field] = record.get_value()
 
-        # Get CPU temperature
-        tables = client.query_api().query(cpu_temp_query)
-        for table in tables:
-            for record in table.records:
-                if record.get_field() == "temp_input":
-                    data['cpu_temp'] = record.get_value()
-
-        # Get NVME temperatures
-        tables = client.query_api().query(nvme_temp_query)
-        for table in tables:
-            for record in table.records:
-                if record.get_field() == "temp_input":
-                    chip = record.values.get("chip")
-                    if chip == "nvme-pci-0100":
-                        data['nvme_0100_temp'] = record.get_value()
-                    elif chip == "nvme-pci-8100":
-                        data['nvme_8100_temp'] = record.get_value()
+        # Server metrics (two columns)
+        data['smallserver_cpu_temp'] = _query_last_value(_server_cpu_temp_query(SMALLSERVER_ALIAS))
+        data['bigserver_cpu_temp'] = _query_last_value(_server_cpu_temp_query(BIGSERVER_ALIAS))
+        data['smallserver_ram_used_percent'] = _query_last_value(_server_ram_used_query(SMALLSERVER_ALIAS))
+        data['bigserver_ram_used_percent'] = _query_last_value(_server_ram_used_query(BIGSERVER_ALIAS))
 
         return data
     finally:
         client.close()
 
-def create_temp_gauge(temp, min_temp=30, max_temp=90, width=20):
-    """
-    Creates a text-based temperature gauge
-    Example: [####----] 65°C
-    Using simple characters that are widely supported
-    """
-    # Normalize temperature to our scale
-    temp = max(min_temp, min(temp, max_temp))  # Clamp between min and max
-    filled = int(((temp - min_temp) / (max_temp - min_temp)) * width)
-    
-    # Create gauge characters using simple ASCII
-    gauge = '['
-    gauge += '#' * filled
-    gauge += '-' * (width - filled)
-    gauge += ']'
-    
-    # Add color based on temperature
-    if temp < 60:
-        return gauge, LIGHT_GREEN  # Cool
-    elif temp < 80:
-        return gauge, LIGHT_YELLOW # Light yellow/Warning
-    else:
-        return gauge, LIGHT_RED  # Hot
+def temp_to_color(temp_value):
+    if temp_value is None:
+        return WHITE
+    try:
+        temp_value = float(temp_value)
+    except (TypeError, ValueError):
+        return WHITE
+
+    if temp_value < 60:
+        return LIGHT_GREEN
+    if temp_value < 80:
+        return LIGHT_YELLOW
+    return LIGHT_RED
+
+
+def _format_temp(value):
+    try:
+        return f"{float(value):.1f}C"
+    except (TypeError, ValueError):
+        return "--.-C"
+
+
+def _format_percent(value):
+    try:
+        return f"{float(value):.1f}%"
+    except (TypeError, ValueError):
+        return "--.-%"
 
 def main():
-    # Get absolute path to the font
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    font_path = os.path.join(current_dir, "res", "fonts", "jetbrains-mono", "JetBrainsMono-Regular.ttf")
-    
     # Initialize display communication
     lcd_comm = LcdCommRevA(
         com_port="/dev/ttyACM0",
@@ -288,62 +321,142 @@ def main():
             )
             y_pos += 20
 
-        # CPU Temperature Section
+        # Servers Section (two columns)
         lcd_comm.DisplayText(
-            text="CPU",
-            x=5,
-            y=300,
-            font="roboto/Roboto-Bold.ttf",
-            font_size=24,
-            font_color=LIGHT_RED,
-            background_color=(0, 0, 0)
+            text="SMALLSERVER",
+            x=SMALL_COL_X,
+            y=SERVERS_Y,
+            width=SMALL_COL_W,
+            height=ROW_H,
+            font=FONT_TABLE_BOLD,
+            font_size=TABLE_FONT_SIZE,
+            font_color=LIGHT_BLUE,
+            background_color=(0, 0, 0),
+            align="center",
+            anchor="mt",
         )
-        
-        # Create temperature gauge
-        gauge, gauge_color = create_temp_gauge(data['cpu_temp'])
-        
-        # Display temperature value
         lcd_comm.DisplayText(
-            text=f"{data['cpu_temp']:.1f}°C",
-            x=5,
-            y=330,
-            font="roboto/Roboto-Regular.ttf",
-            font_size=20,
+            text="|",
+            x=DIVIDER_X,
+            y=SERVERS_Y,
+            font=FONT_TABLE_BOLD,
+            font_size=TABLE_FONT_SIZE,
             font_color=WHITE,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
         )
-        
-        # Display gauge
         lcd_comm.DisplayText(
-            text=gauge,
-            x=80,  # Adjusted x position to align with temperature
-            y=330,
-            font="roboto/Roboto-Regular.ttf",
-            font_size=20,
-            font_color=gauge_color,
-            background_color=(0, 0, 0)
+            text="BIGSERVER",
+            x=BIG_COL_X,
+            y=SERVERS_Y,
+            width=BIG_COL_W,
+            height=ROW_H,
+            font=FONT_TABLE_BOLD,
+            font_size=TABLE_FONT_SIZE,
+            font_color=LIGHT_BLUE,
+            background_color=(0, 0, 0),
+            align="center",
+            anchor="mt",
         )
 
-        # NVME Temperature Section
+        row1_y = SERVERS_Y + 26
+        row2_y = row1_y + 22
+
         lcd_comm.DisplayText(
-            text="NVME",
-            x=5,
-            y=370,
-            font="roboto/Roboto-Bold.ttf",
-            font_size=24,
-            font_color=LIGHT_YELLOW,
-            background_color=(0, 0, 0)
-        )
-        
-        # Display NVME temperatures
-        lcd_comm.DisplayText(
-            text=f"SK Hynix: {data['nvme_0100_temp']:.1f}°C  |  990 Evo: {data['nvme_8100_temp']:.1f}°C",
-            x=5,
-            y=400,
-            font="roboto/Roboto-Regular.ttf",
-            font_size=20,
+            text="CPU Temp",
+            x=LABEL_COL_X,
+            y=row1_y,
+            width=LABEL_COL_W,
+            height=ROW_H,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
             font_color=WHITE,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
+            align="left",
+            anchor="lt",
+        )
+        lcd_comm.DisplayText(
+            text=_format_temp(data.get("smallserver_cpu_temp")),
+            x=SMALL_COL_X,
+            y=row1_y,
+            width=SMALL_COL_W,
+            height=ROW_H,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=temp_to_color(data.get("smallserver_cpu_temp")),
+            background_color=(0, 0, 0),
+            align="right",
+            anchor="rt",
+        )
+        lcd_comm.DisplayText(
+            text="|",
+            x=DIVIDER_X,
+            y=row1_y,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=WHITE,
+            background_color=(0, 0, 0),
+        )
+        lcd_comm.DisplayText(
+            text=_format_temp(data.get("bigserver_cpu_temp")),
+            x=BIG_COL_X,
+            y=row1_y,
+            width=BIG_COL_W,
+            height=ROW_H,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=temp_to_color(data.get("bigserver_cpu_temp")),
+            background_color=(0, 0, 0),
+            align="right",
+            anchor="rt",
+        )
+
+        lcd_comm.DisplayText(
+            text="RAM Usage:",
+            x=LABEL_COL_X,
+            y=row2_y,
+            width=LABEL_COL_W,
+            height=ROW_H,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=WHITE,
+            background_color=(0, 0, 0),
+            align="left",
+            anchor="lt",
+        )
+        lcd_comm.DisplayText(
+            text=_format_percent(data.get("smallserver_ram_used_percent")),
+            x=SMALL_COL_X,
+            y=row2_y,
+            width=SMALL_COL_W,
+            height=ROW_H,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=WHITE,
+            background_color=(0, 0, 0),
+            align="right",
+            anchor="rt",
+        )
+        lcd_comm.DisplayText(
+            text="|",
+            x=DIVIDER_X,
+            y=row2_y,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=WHITE,
+            background_color=(0, 0, 0),
+        )
+        lcd_comm.DisplayText(
+            text=_format_percent(data.get("bigserver_ram_used_percent")),
+            x=BIG_COL_X,
+            y=row2_y,
+            width=BIG_COL_W,
+            height=ROW_H,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=WHITE,
+            background_color=(0, 0, 0),
+            align="right",
+            anchor="rt",
         )
 
         time.sleep(30)
