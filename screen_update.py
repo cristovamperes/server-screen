@@ -43,11 +43,11 @@ NVME_0100_CHIP = os.getenv("NVME_0100_CHIP", "nvme-pci-0100")
 NVME_8100_CHIP = os.getenv("NVME_8100_CHIP", "nvme-pci-8100")
 
 # Layout constants (320x480 portrait)
-# Keep consistent spacing with other sections:
-# - 40px between last line of a section and next section header (e.g. INTERNET -> UPS)
-# - 30px between section header and first row (e.g. UPS -> Status)
-# - 20px between consecutive rows (e.g. Load -> Input)
-SERVERS_Y = 300
+# Keep consistent spacing:
+# - 40px between last line of a section and next section header
+# - 30px between section header and first row
+# - 20px between consecutive rows
+INTERNET_Y = 60
 LABEL_COL_X = 5
 LABEL_COL_W = 120
 DIVIDER_X = 240
@@ -281,10 +281,11 @@ def main():
         )
 
         # Internet Status Section
+        internet_y = INTERNET_Y
         lcd_comm.DisplayText(
             text="INTERNET",
             x=5,
-            y=60,
+            y=internet_y,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_BLUE,
@@ -295,7 +296,7 @@ def main():
         lcd_comm.DisplayText(
             text=f"Location: {data['location']}",
             x=5,
-            y=90,
+            y=internet_y + HEADER_TO_FIRST_ROW_GAP,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -305,7 +306,7 @@ def main():
         lcd_comm.DisplayText(
             text=f"ISP: {data['isp']}",
             x=5,
-            y=110,
+            y=internet_y + HEADER_TO_FIRST_ROW_GAP + ROW_GAP,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -315,7 +316,7 @@ def main():
         lcd_comm.DisplayText(
             text=f"Latency: {data['latency']:.0f}ms",
             x=5,
-            y=130,
+            y=internet_y + HEADER_TO_FIRST_ROW_GAP + 2 * ROW_GAP,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -324,10 +325,11 @@ def main():
 
         # Display internet metrics in a single line with symbols
         internet_metrics = f"Up: {data['upload']:.1f}  |  Down:{data['download']:.1f}"
+        internet_last_line_y = internet_y + HEADER_TO_FIRST_ROW_GAP + 3 * ROW_GAP
         lcd_comm.DisplayText(
             text=internet_metrics,
             x=5,
-            y=150,
+            y=internet_last_line_y,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -335,16 +337,17 @@ def main():
         )
 
         # UPS Status Section
+        ups_y = internet_last_line_y + SECTION_TO_SECTION_GAP
         lcd_comm.DisplayText(
             text="UPS",
             x=5,
-            y=170,
+            y=ups_y,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_GREEN,
             background_color=(0, 0, 0)
         )
-        y_pos = 200
+        y_pos = ups_y + HEADER_TO_FIRST_ROW_GAP
         ups_info = [
             f"Status: {data['ups_status']}  |  Charger: {data['battery_charger_status']}",
             f"Battery: {data['battery_charge_percent']:.1f}%  |  {data['battery_voltage']:.1f}V",
@@ -361,13 +364,14 @@ def main():
                 font_color=WHITE,
                 background_color=(0, 0, 0)
             )
-            y_pos += 20
+            y_pos += ROW_GAP
 
         # Servers Section (two columns)
+        servers_y = (ups_y + HEADER_TO_FIRST_ROW_GAP + (len(ups_info) - 1) * ROW_GAP) + SECTION_TO_SECTION_GAP
         lcd_comm.DisplayText(
             text="SERVERS",
             x=LABEL_COL_X,
-            y=SERVERS_Y,
+            y=servers_y,
             font="roboto/Roboto-Bold.ttf",
             font_size=SECTION_FONT_SIZE,
             font_color=LIGHT_BLUE,
@@ -378,7 +382,7 @@ def main():
         lcd_comm.DisplayText(
             text="SMALL",
             x=SMALL_RIGHT_X,
-            y=SERVERS_Y,
+            y=servers_y,
             font="roboto/Roboto-Bold.ttf",
             font_size=SECTION_FONT_SIZE,
             font_color=WHITE,
@@ -389,7 +393,7 @@ def main():
         lcd_comm.DisplayText(
             text="|",
             x=DIVIDER_X,
-            y=SERVERS_Y,
+            y=servers_y,
             font="roboto/Roboto-Bold.ttf",
             font_size=SECTION_FONT_SIZE,
             font_color=WHITE,
@@ -398,7 +402,7 @@ def main():
         lcd_comm.DisplayText(
             text="BIG",
             x=BIG_RIGHT_X,
-            y=SERVERS_Y,
+            y=servers_y,
             font="roboto/Roboto-Bold.ttf",
             font_size=SECTION_FONT_SIZE,
             font_color=WHITE,
@@ -407,7 +411,7 @@ def main():
             anchor="rt",
         )
 
-        row1_y = SERVERS_Y + HEADER_TO_FIRST_ROW_GAP
+        row1_y = servers_y + HEADER_TO_FIRST_ROW_GAP
         row2_y = row1_y + ROW_GAP
 
         lcd_comm.DisplayText(
