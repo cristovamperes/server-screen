@@ -282,6 +282,15 @@ def _format_percent(value):
     except (TypeError, ValueError):
         return "--.-%"
 
+
+def _capitalize_only_first(value):
+    if value is None:
+        return "Unknown"
+    value = str(value).strip()
+    if not value or value.lower() == "unknown":
+        return "Unknown"
+    return value[:1].upper() + value[1:].lower()
+
 def main():
     # Initialize display communication
     lcd_comm = LcdCommRevA(
@@ -371,7 +380,7 @@ def main():
         )
 
         lcd_comm.DisplayText(
-            text=f"ISP: {data['isp']}",
+            text=f"ISP: {_capitalize_only_first(data['isp'])}",
             x=5,
             y=internet_y + HEADER_TO_FIRST_ROW_GAP + ROW_GAP,
             font="roboto/Roboto-Regular.ttf",
