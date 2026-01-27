@@ -43,20 +43,20 @@ NVME_0100_CHIP = os.getenv("NVME_0100_CHIP", "nvme-pci-0100")
 NVME_8100_CHIP = os.getenv("NVME_8100_CHIP", "nvme-pci-8100")
 
 # Layout constants (320x480 portrait)
-SERVERS_Y = 300
+SERVERS_Y = 285
 LABEL_COL_X = 5
-LABEL_COL_W = 95
-SMALL_COL_X = 105
-SMALL_COL_W = 100
-DIVIDER_X = 210
-BIG_COL_X = 220
-BIG_COL_W = 95
+LABEL_COL_W = 110
+SMALL_COL_X = 120
+SMALL_COL_W = 80
+DIVIDER_X = 207
+BIG_COL_X = 215
+BIG_COL_W = 100
 ROW_H = 28
 TABLE_FONT_SIZE = 20
 SECTION_FONT_SIZE = 24
 
-NVME_Y = 385
-NVME_LINE_Y = 415
+NVME_GAP_BEFORE = 20
+NVME_LINE_OFFSET = 30
 
 FONT_TABLE = "roboto/Roboto-Regular.ttf"
 FONT_TABLE_BOLD = "roboto/Roboto-Bold.ttf"
@@ -358,36 +358,15 @@ def main():
             font_size=SECTION_FONT_SIZE,
             font_color=LIGHT_BLUE,
             background_color=(0, 0, 0),
+            anchor="lt",
         )
         lcd_comm.DisplayText(
-            text="SMALL",
-            x=SMALL_COL_X,
+            text="SMALL  |  BIG",
+            x=LABEL_COL_X,
             y=SERVERS_Y,
-            width=SMALL_COL_W,
+            width=320 - 2 * LABEL_COL_X,
             height=ROW_H,
-            font=FONT_TABLE_BOLD,
-            font_size=SECTION_FONT_SIZE,
-            font_color=WHITE,
-            background_color=(0, 0, 0),
-            align="right",
-            anchor="rt",
-        )
-        lcd_comm.DisplayText(
-            text="|",
-            x=DIVIDER_X,
-            y=SERVERS_Y,
-            font=FONT_TABLE_BOLD,
-            font_size=SECTION_FONT_SIZE,
-            font_color=WHITE,
-            background_color=(0, 0, 0),
-        )
-        lcd_comm.DisplayText(
-            text="BIG",
-            x=BIG_COL_X,
-            y=SERVERS_Y,
-            width=BIG_COL_W,
-            height=ROW_H,
-            font=FONT_TABLE_BOLD,
+            font="roboto/Roboto-Bold.ttf",
             font_size=SECTION_FONT_SIZE,
             font_color=WHITE,
             background_color=(0, 0, 0),
@@ -448,7 +427,7 @@ def main():
         )
 
         lcd_comm.DisplayText(
-            text="RAM Usage:",
+            text="RAM Usage",
             x=LABEL_COL_X,
             y=row2_y,
             width=LABEL_COL_W,
@@ -497,10 +476,12 @@ def main():
         )
 
         # NVME Temperature Section
+        nvme_y = row2_y + ROW_H + NVME_GAP_BEFORE
+        nvme_line_y = nvme_y + NVME_LINE_OFFSET
         lcd_comm.DisplayText(
             text="NVME",
             x=5,
-            y=NVME_Y,
+            y=nvme_y,
             font="roboto/Roboto-Bold.ttf",
             font_size=SECTION_FONT_SIZE,
             font_color=LIGHT_YELLOW,
@@ -509,7 +490,7 @@ def main():
         lcd_comm.DisplayText(
             text=f"SK Hynix: {_format_temp(data.get('nvme_0100_temp'))}  |  990 Evo: {_format_temp(data.get('nvme_8100_temp'))}",
             x=5,
-            y=NVME_LINE_Y,
+            y=nvme_line_y,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
