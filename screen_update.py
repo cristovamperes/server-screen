@@ -50,11 +50,9 @@ NVME_8100_CHIP = os.getenv("NVME_8100_CHIP", "nvme-pci-8100")
 SERVERS_Y = 300
 LABEL_COL_X = 5
 LABEL_COL_W = 120
-SMALL_COL_X = 185
-SMALL_COL_W = 70
 DIVIDER_X = 240
-BIG_COL_X = 225
-BIG_COL_W = 90
+SMALL_RIGHT_X = DIVIDER_X - 10
+BIG_RIGHT_X = 315
 ROW_H = 28
 TABLE_FONT_SIZE = 20
 SECTION_FONT_SIZE = 24
@@ -359,8 +357,6 @@ def main():
             text="SERVERS",
             x=LABEL_COL_X,
             y=SERVERS_Y,
-            width=LABEL_COL_W,
-            height=ROW_H,
             font="roboto/Roboto-Bold.ttf",
             font_size=SECTION_FONT_SIZE,
             font_color=LIGHT_BLUE,
@@ -370,10 +366,8 @@ def main():
         )
         lcd_comm.DisplayText(
             text="SMALL",
-            x=SMALL_COL_X,
+            x=SMALL_RIGHT_X,
             y=SERVERS_Y,
-            width=SMALL_COL_W,
-            height=ROW_H,
             font="roboto/Roboto-Bold.ttf",
             font_size=SECTION_FONT_SIZE,
             font_color=WHITE,
@@ -392,10 +386,8 @@ def main():
         )
         lcd_comm.DisplayText(
             text="BIG",
-            x=BIG_COL_X,
+            x=BIG_RIGHT_X,
             y=SERVERS_Y,
-            width=BIG_COL_W,
-            height=ROW_H,
             font="roboto/Roboto-Bold.ttf",
             font_size=SECTION_FONT_SIZE,
             font_color=WHITE,
@@ -411,8 +403,6 @@ def main():
             text="CPU Temp",
             x=LABEL_COL_X,
             y=row1_y,
-            width=LABEL_COL_W,
-            height=ROW_H,
             font=FONT_TABLE,
             font_size=TABLE_FONT_SIZE,
             font_color=WHITE,
@@ -422,10 +412,8 @@ def main():
         )
         lcd_comm.DisplayText(
             text=_format_temp(data.get("smallserver_cpu_temp")),
-            x=SMALL_COL_X,
+            x=SMALL_RIGHT_X,
             y=row1_y,
-            width=SMALL_COL_W,
-            height=ROW_H,
             font=FONT_TABLE,
             font_size=TABLE_FONT_SIZE,
             font_color=temp_to_color(data.get("smallserver_cpu_temp")),
@@ -444,10 +432,8 @@ def main():
         )
         lcd_comm.DisplayText(
             text=_format_temp(data.get("bigserver_cpu_temp")),
-            x=BIG_COL_X,
+            x=BIG_RIGHT_X,
             y=row1_y,
-            width=BIG_COL_W,
-            height=ROW_H,
             font=FONT_TABLE,
             font_size=TABLE_FONT_SIZE,
             font_color=temp_to_color(data.get("bigserver_cpu_temp")),
@@ -460,8 +446,6 @@ def main():
             text="RAM Usage",
             x=LABEL_COL_X,
             y=row2_y,
-            width=LABEL_COL_W,
-            height=ROW_H,
             font=FONT_TABLE,
             font_size=TABLE_FONT_SIZE,
             font_color=WHITE,
@@ -471,10 +455,8 @@ def main():
         )
         lcd_comm.DisplayText(
             text=_format_percent(data.get("smallserver_ram_used_percent")),
-            x=SMALL_COL_X,
+            x=SMALL_RIGHT_X,
             y=row2_y,
-            width=SMALL_COL_W,
-            height=ROW_H,
             font=FONT_TABLE,
             font_size=TABLE_FONT_SIZE,
             font_color=WHITE,
@@ -493,10 +475,8 @@ def main():
         )
         lcd_comm.DisplayText(
             text=_format_percent(data.get("bigserver_ram_used_percent")),
-            x=BIG_COL_X,
+            x=BIG_RIGHT_X,
             y=row2_y,
-            width=BIG_COL_W,
-            height=ROW_H,
             font=FONT_TABLE,
             font_size=TABLE_FONT_SIZE,
             font_color=WHITE,
