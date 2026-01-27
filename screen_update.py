@@ -1,13 +1,15 @@
 import json
 import os
 import time
+
+from dotenv import load_dotenv
+from influxdb_client import InfluxDBClient
+from PIL import Image
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
-from dotenv import load_dotenv
+
 from library.lcd.lcd_comm import Orientation
 from library.lcd.lcd_comm_rev_a import LcdCommRevA
-from PIL import Image
-from influxdb_client import InfluxDBClient
 
 # Load environment variables at the start of your script
 load_dotenv()
@@ -18,17 +20,12 @@ LIGHT_BLUE = (135, 206, 235)    # Sky blue
 LIGHT_GREEN = (144, 238, 144)   # Light green
 LIGHT_RED = (255, 160, 160)     # Light red for CPU temp
 LIGHT_YELLOW = (255, 255, 153)   # Light yellow for CPU temp
+
+# WAN/IP details (same approach as `origin/main`)
 IPIFY_URL = os.getenv("IPIFY_URL", "https://api.ipify.org?format=json")
 IP_API_URL_TEMPLATE = os.getenv(
     "IP_API_URL", "http://ip-api.com/json/{ip}?fields=status,message,city,countryCode,isp"
 )
-MEM_USAGE_MEASUREMENT = os.getenv("HOST_MEMORY_MEASUREMENT", "mem")
-MEM_USAGE_FIELD = os.getenv("HOST_MEMORY_FIELD", "used_percent")
-MEM_USAGE_HOST = os.getenv("HOST_MEMORY_HOST")
-try:
-    GAUGE_WIDTH = int(os.getenv("GAUGE_WIDTH", "10"))
-except ValueError:
-    GAUGE_WIDTH = 10
 LAST_IP_DETAILS = {
     "public_ip": "Unknown",
     "location_city": "Unknown",
@@ -36,9 +33,53 @@ LAST_IP_DETAILS = {
     "isp": "Unknown",
 }
 
+# Influx / host config
+INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "homelab")
+# Name of the Influx tag that identifies which server a metric belongs to.
+# You mentioned you created a `server_alias` tag, so that's the default.
+INFLUXDB_SERVER_TAG = os.getenv("INFLUXDB_SERVER_TAG", os.getenv("INFLUXDB_HOST_TAG", "server_alias"))
+
+SMALLSERVER_ALIAS = os.getenv("SMALLSERVER_ALIAS", os.getenv("SMALLSERVER_HOST", "smallserver"))
+BIGSERVER_ALIAS = os.getenv("BIGSERVER_ALIAS", os.getenv("BIGSERVER_HOST", "bigserver"))
+
+SERVER_TEMP_MEASUREMENT = os.getenv("SERVER_TEMP_MEASUREMENT", "sensors")
+SERVER_TEMP_FIELD = os.getenv("SERVER_TEMP_FIELD", "temp_input")
+SERVER_TEMP_CHIP = os.getenv("SERVER_TEMP_CHIP", "coretemp-isa-0000")
+SERVER_TEMP_FEATURE = os.getenv("SERVER_TEMP_FEATURE", "package_id_0")
+
+SERVER_RAM_MEASUREMENT = os.getenv("SERVER_RAM_MEASUREMENT", "mem")
+SERVER_RAM_FIELD = os.getenv("SERVER_RAM_FIELD", "used_percent")
+
+# NVME temps (defaults assume the drives exist on BIGSERVER)
+NVME_SERVER_ALIAS = os.getenv("NVME_SERVER_ALIAS", BIGSERVER_ALIAS)
+NVME_TEMP_FEATURE = os.getenv("NVME_TEMP_FEATURE", "composite")
+NVME_0100_CHIP = os.getenv("NVME_0100_CHIP", "nvme-pci-0100")
+NVME_8100_CHIP = os.getenv("NVME_8100_CHIP", "nvme-pci-8100")
+
+# Layout constants (320x480 portrait)
+# Keep consistent spacing:
+# - 40px between last line of a section and next section header
+# - 30px between section header and first row
+# - 20px between consecutive rows
+INTERNET_Y = 60
+LABEL_COL_X = 5
+LABEL_COL_W = 120
+DIVIDER_X = 240
+SMALL_RIGHT_X = DIVIDER_X - 10
+BIG_RIGHT_X = 315
+ROW_H = 28
+TABLE_FONT_SIZE = 20
+SECTION_FONT_SIZE = 24
+
+SECTION_TO_SECTION_GAP = 40
+HEADER_TO_FIRST_ROW_GAP = 30
+ROW_GAP = 20
+
+FONT_TABLE = "roboto/Roboto-Regular.ttf"
+FONT_TABLE_BOLD = "roboto/Roboto-Bold.ttf"
+
 
 def get_public_ip():
-    """Fetch the current public IPv4 address, fallback to Unknown on errors."""
     try:
         with urlopen(IPIFY_URL, timeout=5) as response:
             payload = json.loads(response.read().decode("utf-8"))
@@ -48,12 +89,6 @@ def get_public_ip():
 
 
 def get_ip_details():
-    """
-    Return WAN IP plus ISP/location details derived from ip-api.com.
-
-    Falls back to the last known successful values when the API calls fail so the
-    screen does not flash back to "Unknown" on transient network glitches.
-    """
     global LAST_IP_DETAILS
     cached_details = LAST_IP_DETAILS.copy()
 
@@ -88,6 +123,7 @@ def get_ip_details():
     LAST_IP_DETAILS = updated_details
     return updated_details
 
+
 def get_system_data():
     # Configure InfluxDB connection
     client = InfluxDBClient(
@@ -97,16 +133,16 @@ def get_system_data():
     )
 
     # Internet metrics query
-    internet_query = '''
-    from(bucket: "homelab")
+    internet_query = f'''
+    from(bucket: "{INFLUXDB_BUCKET}")
     |> range(start: -1h)
-    |> filter(fn: (r) => r["_field"] == "download" or r["_field"] == "upload" or r["_field"] == "latency")
+    |> filter(fn: (r) => r["_field"] == "download" or r["_field"] == "upload" or r["_field"] == "location" or r["_field"] == "latency" or r["_field"] == "isp")
     |> last()
     '''
 
     # UPS metrics query
-    ups_query = '''
-    from(bucket: "homelab")
+    ups_query = f'''
+    from(bucket: "{INFLUXDB_BUCKET}")
     |> range(start: -1m)
     |> filter(fn: (r) => r["_measurement"] == "upsd")
     |> filter(fn: (r) => r["_field"] == "ups_status" or 
@@ -120,43 +156,56 @@ def get_system_data():
     |> last()
     '''
 
-    # CPU temperature query
-    cpu_temp_query = '''
-    from(bucket: "homelab")
-    |> range(start: -1m)
-    |> filter(fn: (r) => r["_measurement"] == "sensors")
-    |> filter(fn: (r) => r["_field"] == "temp_input")
-    |> filter(fn: (r) => r["chip"] == "coretemp-isa-0000")
-    |> filter(fn: (r) => r["feature"] == "package_id_0")
-    |> last()
-    '''
+    def _query_last_value(query: str):
+        tables = client.query_api().query(query)
+        for table in tables:
+            for record in table.records:
+                return record.get_value()
+        return None
 
-    # NVME temperature query
-    nvme_temp_query = '''
-    from(bucket: "homelab")
-    |> range(start: -1m)
-    |> filter(fn: (r) => r["_measurement"] == "sensors")
-    |> filter(fn: (r) => r["_field"] == "temp_input")
-    |> filter(fn: (r) => r["chip"] == "nvme-pci-0100" or r["chip"] == "nvme-pci-8100")
-    |> filter(fn: (r) => r["feature"] == "composite")
-    |> last()
-    '''
+    def _server_eq(server_alias: str) -> str:
+        return f'r["{INFLUXDB_SERVER_TAG}"] == {json.dumps(server_alias)}'
 
-    memory_query_lines = [
-        'from(bucket: "homelab")',
-        '|> range(start: -1m)',
-        f'|> filter(fn: (r) => r["_measurement"] == "{MEM_USAGE_MEASUREMENT}")',
-        f'|> filter(fn: (r) => r["_field"] == "{MEM_USAGE_FIELD}")',
-    ]
-    if MEM_USAGE_HOST:
-        memory_query_lines.append(f'|> filter(fn: (r) => r["host"] == "{MEM_USAGE_HOST}")')
-    memory_query_lines.append('|> last()')
-    memory_query = "\n".join(memory_query_lines)
+    def _server_cpu_temp_query(host_value: str) -> str:
+        return f'''
+        from(bucket: "{INFLUXDB_BUCKET}")
+        |> range(start: -5m)
+        |> filter(fn: (r) => r["_measurement"] == "{SERVER_TEMP_MEASUREMENT}")
+        |> filter(fn: (r) => r["_field"] == "{SERVER_TEMP_FIELD}")
+        |> filter(fn: (r) => {_server_eq(host_value)})
+        |> filter(fn: (r) => r["chip"] == "{SERVER_TEMP_CHIP}")
+        |> filter(fn: (r) => r["feature"] == "{SERVER_TEMP_FEATURE}")
+        |> last()
+        '''
+
+    def _server_ram_used_query(host_value: str) -> str:
+        return f'''
+        from(bucket: "{INFLUXDB_BUCKET}")
+        |> range(start: -5m)
+        |> filter(fn: (r) => r["_measurement"] == "{SERVER_RAM_MEASUREMENT}")
+        |> filter(fn: (r) => r["_field"] == "{SERVER_RAM_FIELD}")
+        |> filter(fn: (r) => {_server_eq(host_value)})
+        |> last()
+        '''
+
+    def _server_nvme_temp_query(server_alias: str, chip_value: str) -> str:
+        return f'''
+        from(bucket: "{INFLUXDB_BUCKET}")
+        |> range(start: -5m)
+        |> filter(fn: (r) => r["_measurement"] == "{SERVER_TEMP_MEASUREMENT}")
+        |> filter(fn: (r) => r["_field"] == "{SERVER_TEMP_FIELD}")
+        |> filter(fn: (r) => {_server_eq(server_alias)})
+        |> filter(fn: (r) => r["chip"] == "{chip_value}")
+        |> filter(fn: (r) => r["feature"] == "{NVME_TEMP_FEATURE}")
+        |> last()
+        '''
 
     # Initialize values
     data = {
         'download': 0,
         'upload': 0,
+        'location': "Unknown",
+        'isp': "Unknown",
         'latency': 0,
         'ups_status': "Unknown",
         'load_percent': 0,
@@ -166,14 +215,12 @@ def get_system_data():
         'input_voltage': 0,
         'output_voltage': 0,
         'internal_temp': 0,
-        'cpu_temp': 0,
-        'nvme_0100_temp': 0,
-        'nvme_8100_temp': 0,
-        'public_ip': "Unknown",
-        'location_city': "Unknown",
-        'location_country_code': "",
-        'isp': "Unknown",
-        'memory_usage': 0.0
+        'smallserver_cpu_temp': None,
+        'bigserver_cpu_temp': None,
+        'smallserver_ram_used_percent': None,
+        'bigserver_ram_used_percent': None,
+        'nvme_0100_temp': None,
+        'nvme_8100_temp': None,
     }
     
     try:
@@ -193,68 +240,58 @@ def get_system_data():
                 if field in data:
                     data[field] = record.get_value()
 
-        # Get CPU temperature
-        tables = client.query_api().query(cpu_temp_query)
-        for table in tables:
-            for record in table.records:
-                if record.get_field() == "temp_input":
-                    data['cpu_temp'] = record.get_value()
+        # Server metrics (two columns)
+        data['smallserver_cpu_temp'] = _query_last_value(_server_cpu_temp_query(SMALLSERVER_ALIAS))
+        data['bigserver_cpu_temp'] = _query_last_value(_server_cpu_temp_query(BIGSERVER_ALIAS))
+        data['smallserver_ram_used_percent'] = _query_last_value(_server_ram_used_query(SMALLSERVER_ALIAS))
+        data['bigserver_ram_used_percent'] = _query_last_value(_server_ram_used_query(BIGSERVER_ALIAS))
 
-        # Get NVME temperatures
-        tables = client.query_api().query(nvme_temp_query)
-        for table in tables:
-            for record in table.records:
-                if record.get_field() == "temp_input":
-                    chip = record.values.get("chip")
-                    if chip == "nvme-pci-0100":
-                        data['nvme_0100_temp'] = record.get_value()
-                    elif chip == "nvme-pci-8100":
-                        data['nvme_8100_temp'] = record.get_value()
-
-        tables = client.query_api().query(memory_query)
-        for table in tables:
-            for record in table.records:
-                if record.get_field() == MEM_USAGE_FIELD:
-                    value = record.get_value()
-                    if value is not None:
-                        data['memory_usage'] = float(value)
-
-        ip_details = get_ip_details()
-        data.update(ip_details)
+        # NVME temps (typically on BIGSERVER, configurable)
+        data['nvme_0100_temp'] = _query_last_value(_server_nvme_temp_query(NVME_SERVER_ALIAS, NVME_0100_CHIP))
+        data['nvme_8100_temp'] = _query_last_value(_server_nvme_temp_query(NVME_SERVER_ALIAS, NVME_8100_CHIP))
 
         return data
     finally:
         client.close()
 
-def create_temp_gauge(temp, min_temp=30, max_temp=90, width=10):
-    """
-    Creates a text-based temperature gauge
-    Example: [####----] 65°C
-    Using simple characters that are widely supported
-    """
-    # Normalize temperature to our scale
-    temp = max(min_temp, min(temp, max_temp))  # Clamp between min and max
-    filled = int(((temp - min_temp) / (max_temp - min_temp)) * width)
-    
-    # Create gauge characters using simple ASCII
-    gauge = '['
-    gauge += '#' * filled
-    gauge += '-' * (width - filled)
-    gauge += ']'
-    
-    # Add color based on temperature
-    if temp < 60:
-        return gauge, LIGHT_GREEN  # Cool
-    elif temp < 80:
-        return gauge, LIGHT_YELLOW # Light yellow/Warning
-    else:
-        return gauge, LIGHT_RED  # Hot
+def temp_to_color(temp_value):
+    if temp_value is None:
+        return WHITE
+    try:
+        temp_value = float(temp_value)
+    except (TypeError, ValueError):
+        return WHITE
+
+    if temp_value < 60:
+        return LIGHT_GREEN
+    if temp_value < 80:
+        return LIGHT_YELLOW
+    return LIGHT_RED
+
+
+def _format_temp(value):
+    try:
+        return f"{float(value):.1f}C"
+    except (TypeError, ValueError):
+        return "--.-C"
+
+
+def _format_percent(value):
+    try:
+        return f"{float(value):.1f}%"
+    except (TypeError, ValueError):
+        return "--.-%"
+
+
+def _capitalize_only_first(value):
+    if value is None:
+        return "Unknown"
+    value = str(value).strip()
+    if not value or value.lower() == "unknown":
+        return "Unknown"
+    return value[:1].upper() + value[1:].lower()
 
 def main():
-    # Get absolute path to the font
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    font_path = os.path.join(current_dir, "res", "fonts", "jetbrains-mono", "JetBrainsMono-Regular.ttf")
-    
     # Initialize display communication
     lcd_comm = LcdCommRevA(
         com_port="/dev/ttyACM0",
@@ -274,6 +311,13 @@ def main():
     while True:
         # Get latest data
         data = get_system_data()
+
+        # Prefer WAN/IP-derived ISP/location (fallback to last successful values)
+        ip_details = get_ip_details()
+        if ip_details.get("location_city") and ip_details["location_city"] != "Unknown":
+            data["location"] = ip_details["location_city"]
+        if ip_details.get("isp") and ip_details["isp"] != "Unknown":
+            data["isp"] = ip_details["isp"]
         
         # Create and display black background
         black_bg = Image.new('RGB', (320, 480), color=(0, 0, 0))
@@ -313,27 +357,22 @@ def main():
         )
 
         # Internet Status Section
+        internet_y = INTERNET_Y
         lcd_comm.DisplayText(
             text="INTERNET",
             x=5,
-            y=60,
+            y=internet_y,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_BLUE,
             background_color=(0, 0, 0)
         )
 
-        location_parts = []
-        if data['location_city'] not in ("", "Unknown"):
-            location_parts.append(data['location_city'])
-        if data['location_country_code']:
-            location_parts.append(data['location_country_code'])
-        location_value = "-".join(location_parts) if location_parts else "Unknown"
-
+        # Display location on the next line
         lcd_comm.DisplayText(
-            text=f"WAN IP: {data['public_ip']}",
+            text=f"Location: {data['location']}",
             x=5,
-            y=90,
+            y=internet_y + HEADER_TO_FIRST_ROW_GAP,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -341,9 +380,9 @@ def main():
         )
 
         lcd_comm.DisplayText(
-            text=f"Location: {location_value}",
+            text=f"ISP: {_capitalize_only_first(data['isp'])}",
             x=5,
-            y=110,
+            y=internet_y + HEADER_TO_FIRST_ROW_GAP + ROW_GAP,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -351,9 +390,9 @@ def main():
         )
 
         lcd_comm.DisplayText(
-            text=f"ISP: {str(data['isp']).capitalize()}",
+            text=f"Latency: {data['latency']:.0f}ms",
             x=5,
-            y=130,
+            y=internet_y + HEADER_TO_FIRST_ROW_GAP + 2 * ROW_GAP,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -361,11 +400,12 @@ def main():
         )
 
         # Display internet metrics in a single line with symbols
-        internet_metrics = f"Speed Test: {data['upload']:.0f} up / {data['download']:.0f} down"
+        internet_metrics = f"Up: {data['upload']:.1f}  |  Down:{data['download']:.1f}"
+        internet_last_line_y = internet_y + HEADER_TO_FIRST_ROW_GAP + 3 * ROW_GAP
         lcd_comm.DisplayText(
             text=internet_metrics,
             x=5,
-            y=150,
+            y=internet_last_line_y,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
@@ -373,16 +413,17 @@ def main():
         )
 
         # UPS Status Section
+        ups_y = internet_last_line_y + SECTION_TO_SECTION_GAP
         lcd_comm.DisplayText(
-            text="NO-BREAK",
+            text="UPS",
             x=5,
-            y=190,
+            y=ups_y,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_GREEN,
             background_color=(0, 0, 0)
         )
-        y_pos = 220
+        y_pos = ups_y + HEADER_TO_FIRST_ROW_GAP
         ups_info = [
             f"Status: {data['ups_status']}  |  Charger: {data['battery_charger_status']}",
             f"Battery: {data['battery_charge_percent']:.1f}%  |  {data['battery_voltage']:.1f}V",
@@ -399,93 +440,162 @@ def main():
                 font_color=WHITE,
                 background_color=(0, 0, 0)
             )
-            y_pos += 20
+            y_pos += ROW_GAP
 
-        # CPU Temperature Section
+        # Servers Section (two columns)
+        servers_y = (ups_y + HEADER_TO_FIRST_ROW_GAP + (len(ups_info) - 1) * ROW_GAP) + SECTION_TO_SECTION_GAP
         lcd_comm.DisplayText(
-            text="SERVER",
-            x=5,
-            y=320,
+            text="SERVERS",
+            x=LABEL_COL_X,
+            y=servers_y,
             font="roboto/Roboto-Bold.ttf",
-            font_size=24,
-            font_color=LIGHT_RED,
-            background_color=(0, 0, 0)
+            font_size=SECTION_FONT_SIZE,
+            font_color=LIGHT_BLUE,
+            background_color=(0, 0, 0),
+            align="left",
+            anchor="lt",
         )
-        
-        # Create temperature gauge
-        cpu_gauge, cpu_color = create_temp_gauge(data['cpu_temp'],width=GAUGE_WIDTH)
-
-        # Display temperature value
         lcd_comm.DisplayText(
-            text=f"CPU Temp: {data['cpu_temp']:.1f}C",
-            x=5,
-            y=350,
-            font="roboto/Roboto-Regular.ttf",
-            font_size=20,
+            text="SMALL",
+            x=SMALL_RIGHT_X,
+            y=servers_y,
+            font="roboto/Roboto-Bold.ttf",
+            font_size=SECTION_FONT_SIZE,
             font_color=WHITE,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
+            align="right",
+            anchor="rt",
         )
-
-        # Display CPU gauge
         lcd_comm.DisplayText(
-            text=cpu_gauge,
-            x=180,
-            y=350,
-            font="roboto-mono/RobotoMono-Regular.ttf",
-            font_size=20,
-            font_color=cpu_color,
-            background_color=(0, 0, 0)
-        )
-
-        mem_gauge, mem_color = create_temp_gauge(
-            data['memory_usage'],
-            min_temp=0,
-            max_temp=100,
-            width=GAUGE_WIDTH
-        )
-
-        # Display memory usage value
-        lcd_comm.DisplayText(
-            text=f"RAM Usage: {data['memory_usage']:.1f}%",
-            x=5,
-            y=370,
-            font="roboto/Roboto-Regular.ttf",
-            font_size=20,
+            text="|",
+            x=DIVIDER_X,
+            y=servers_y,
+            font="roboto/Roboto-Bold.ttf",
+            font_size=SECTION_FONT_SIZE,
             font_color=WHITE,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
+        )
+        lcd_comm.DisplayText(
+            text="BIG",
+            x=BIG_RIGHT_X,
+            y=servers_y,
+            font="roboto/Roboto-Bold.ttf",
+            font_size=SECTION_FONT_SIZE,
+            font_color=WHITE,
+            background_color=(0, 0, 0),
+            align="right",
+            anchor="rt",
         )
 
-        # Display memory gauge
+        row1_y = servers_y + HEADER_TO_FIRST_ROW_GAP
+        row2_y = row1_y + ROW_GAP
+
         lcd_comm.DisplayText(
-            text=mem_gauge,
-            x=180,
-            y=370,
-            font="roboto-mono/RobotoMono-Regular.ttf",
-            font_size=20,
-            font_color=mem_color,
-            background_color=(0, 0, 0)
+            text="CPU Temp",
+            x=LABEL_COL_X,
+            y=row1_y,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=WHITE,
+            background_color=(0, 0, 0),
+            align="left",
+            anchor="lt",
+        )
+        lcd_comm.DisplayText(
+            text=_format_temp(data.get("smallserver_cpu_temp")),
+            x=SMALL_RIGHT_X,
+            y=row1_y,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=temp_to_color(data.get("smallserver_cpu_temp")),
+            background_color=(0, 0, 0),
+            align="right",
+            anchor="rt",
+        )
+        lcd_comm.DisplayText(
+            text="|",
+            x=DIVIDER_X,
+            y=row1_y,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=WHITE,
+            background_color=(0, 0, 0),
+        )
+        lcd_comm.DisplayText(
+            text=_format_temp(data.get("bigserver_cpu_temp")),
+            x=BIG_RIGHT_X,
+            y=row1_y,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=temp_to_color(data.get("bigserver_cpu_temp")),
+            background_color=(0, 0, 0),
+            align="right",
+            anchor="rt",
+        )
+
+        lcd_comm.DisplayText(
+            text="RAM Usage",
+            x=LABEL_COL_X,
+            y=row2_y,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=WHITE,
+            background_color=(0, 0, 0),
+            align="left",
+            anchor="lt",
+        )
+        lcd_comm.DisplayText(
+            text=_format_percent(data.get("smallserver_ram_used_percent")),
+            x=SMALL_RIGHT_X,
+            y=row2_y,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=WHITE,
+            background_color=(0, 0, 0),
+            align="right",
+            anchor="rt",
+        )
+        lcd_comm.DisplayText(
+            text="|",
+            x=DIVIDER_X,
+            y=row2_y,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=WHITE,
+            background_color=(0, 0, 0),
+        )
+        lcd_comm.DisplayText(
+            text=_format_percent(data.get("bigserver_ram_used_percent")),
+            x=BIG_RIGHT_X,
+            y=row2_y,
+            font=FONT_TABLE,
+            font_size=TABLE_FONT_SIZE,
+            font_color=WHITE,
+            background_color=(0, 0, 0),
+            align="right",
+            anchor="rt",
         )
 
         # NVME Temperature Section
+        nvme_y = row2_y + SECTION_TO_SECTION_GAP
+        nvme_line_y = nvme_y + HEADER_TO_FIRST_ROW_GAP
         lcd_comm.DisplayText(
             text="NVME",
             x=5,
-            y=410,
+            y=nvme_y,
             font="roboto/Roboto-Bold.ttf",
-            font_size=24,
+            font_size=SECTION_FONT_SIZE,
             font_color=LIGHT_YELLOW,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
         )
-        
-        # Display NVME temperatures
         lcd_comm.DisplayText(
-            text=f"SK Hynix: {data['nvme_0100_temp']:.1f}°C  |  990 Evo: {data['nvme_8100_temp']:.1f}°C",
+            text=f"UMIS: {_format_temp(data.get('nvme_0100_temp'))}  |  990 Evo: {_format_temp(data.get('nvme_8100_temp'))}",
             x=5,
-            y=440,
+            y=nvme_line_y,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
         )
 
         time.sleep(30)
