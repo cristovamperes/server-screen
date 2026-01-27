@@ -43,7 +43,11 @@ NVME_0100_CHIP = os.getenv("NVME_0100_CHIP", "nvme-pci-0100")
 NVME_8100_CHIP = os.getenv("NVME_8100_CHIP", "nvme-pci-8100")
 
 # Layout constants (320x480 portrait)
-SERVERS_Y = 285
+# Keep consistent spacing with other sections:
+# - 40px between last line of a section and next section header (e.g. INTERNET -> UPS)
+# - 30px between section header and first row (e.g. UPS -> Status)
+# - 20px between consecutive rows (e.g. Load -> Input)
+SERVERS_Y = 300
 LABEL_COL_X = 5
 LABEL_COL_W = 110
 SMALL_COL_X = 120
@@ -55,8 +59,9 @@ ROW_H = 28
 TABLE_FONT_SIZE = 20
 SECTION_FONT_SIZE = 24
 
-NVME_GAP_BEFORE = 20
-NVME_LINE_OFFSET = 30
+SECTION_TO_SECTION_GAP = 40
+HEADER_TO_FIRST_ROW_GAP = 30
+ROW_GAP = 20
 
 FONT_TABLE = "roboto/Roboto-Regular.ttf"
 FONT_TABLE_BOLD = "roboto/Roboto-Bold.ttf"
@@ -375,8 +380,8 @@ def main():
             anchor="lt",
         )
 
-        row1_y = SERVERS_Y + 34
-        row2_y = row1_y + 26
+        row1_y = SERVERS_Y + HEADER_TO_FIRST_ROW_GAP
+        row2_y = row1_y + ROW_GAP
 
         lcd_comm.DisplayText(
             text="CPU Temp",
@@ -477,8 +482,8 @@ def main():
         )
 
         # NVME Temperature Section
-        nvme_y = row2_y + ROW_H + NVME_GAP_BEFORE
-        nvme_line_y = nvme_y + NVME_LINE_OFFSET
+        nvme_y = row2_y + ROW_GAP + SECTION_TO_SECTION_GAP
+        nvme_line_y = nvme_y + HEADER_TO_FIRST_ROW_GAP
         lcd_comm.DisplayText(
             text="NVME",
             x=5,
