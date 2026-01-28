@@ -302,11 +302,22 @@ def main():
     # Initialize the display
     lcd_comm.Reset()
     lcd_comm.InitializeComm()
-    
+
     # Configure display settings
     lcd_comm.SetBrightness(level=10)
     lcd_comm.SetOrientation(orientation=Orientation.PORTRAIT)
 
+    # Draw black background once (avoid full-screen wipe on every refresh)
+    if not os.path.exists("black_bg.png"):
+        Image.new("RGB", (320, 480), color=(0, 0, 0)).save("black_bg.png")
+    lcd_comm.DisplayBitmap("black_bg.png")
+
+    # Fixed regions for dynamic values (prevents leftover characters without full clears)
+    FULL_LINE_W = 315
+    FULL_LINE_H = ROW_H
+    CELL_W = 70
+    SMALL_CELL_X = SMALL_RIGHT_X - CELL_W
+    BIG_CELL_X = BIG_RIGHT_X - CELL_W
 
     while True:
         # Get latest data
@@ -318,12 +329,7 @@ def main():
             data["location"] = ip_details["location_city"]
         if ip_details.get("isp") and ip_details["isp"] != "Unknown":
             data["isp"] = ip_details["isp"]
-        
-        # Create and display black background
-        black_bg = Image.new('RGB', (320, 480), color=(0, 0, 0))
-        black_bg.save('black_bg.png')
-        lcd_comm.DisplayBitmap('black_bg.png')
-        
+
         # Display time and date
         current_time = time.strftime("%H:%M:%S")
         current_date = time.strftime("%d/%m/%Y")
@@ -331,20 +337,29 @@ def main():
             text=current_time,
             x=5,
             y=5,
+            width=155,
+            height=34,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=WHITE,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
+            align="left",
+            anchor="lt",
         )
         lcd_comm.DisplayText(
             text=current_date,
-            x=190,  # Right-aligned position
+            x=190,
             y=5,
+            width=125,
+            height=34,
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=WHITE,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
+            align="right",
+            anchor="rt",
         )
+
         # Draw a line below time and date
         lcd_comm.DisplayText(
             text="____________________________________",
@@ -353,7 +368,7 @@ def main():
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
         )
 
         # Internet Status Section
@@ -365,54 +380,67 @@ def main():
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_BLUE,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
         )
 
-        # Display location on the next line
         lcd_comm.DisplayText(
             text=f"Location: {data['location']}",
             x=5,
             y=internet_y + HEADER_TO_FIRST_ROW_GAP,
+            width=FULL_LINE_W,
+            height=FULL_LINE_H,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
+            align="left",
+            anchor="lt",
         )
 
         lcd_comm.DisplayText(
             text=f"ISP: {_capitalize_only_first(data['isp'])}",
             x=5,
             y=internet_y + HEADER_TO_FIRST_ROW_GAP + ROW_GAP,
+            width=FULL_LINE_W,
+            height=FULL_LINE_H,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
+            align="left",
+            anchor="lt",
         )
 
         lcd_comm.DisplayText(
             text=f"Latency: {data['latency']:.0f}ms",
             x=5,
             y=internet_y + HEADER_TO_FIRST_ROW_GAP + 2 * ROW_GAP,
+            width=FULL_LINE_W,
+            height=FULL_LINE_H,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
+            align="left",
+            anchor="lt",
         )
 
-        # Display internet metrics in a single line with symbols
         internet_metrics = f"Up: {data['upload']:.1f}  |  Down:{data['download']:.1f}"
         internet_last_line_y = internet_y + HEADER_TO_FIRST_ROW_GAP + 3 * ROW_GAP
         lcd_comm.DisplayText(
             text=internet_metrics,
             x=5,
             y=internet_last_line_y,
+            width=FULL_LINE_W,
+            height=FULL_LINE_H,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
+            align="left",
+            anchor="lt",
         )
 
-        # UPS Status Section
         ups_y = internet_last_line_y + SECTION_TO_SECTION_GAP
         lcd_comm.DisplayText(
             text="UPS",
@@ -421,28 +449,31 @@ def main():
             font="roboto/Roboto-Bold.ttf",
             font_size=24,
             font_color=LIGHT_GREEN,
-            background_color=(0, 0, 0)
+            background_color=(0, 0, 0),
         )
         y_pos = ups_y + HEADER_TO_FIRST_ROW_GAP
         ups_info = [
             f"Status: {data['ups_status']}  |  Charger: {data['battery_charger_status']}",
             f"Battery: {data['battery_charge_percent']:.1f}%  |  {data['battery_voltage']:.1f}V",
             f"Load: {data['load_percent']:.1f}%  |  Temp: {data['internal_temp']:.1f}°C",
-            f"Input: {data['input_voltage']:.1f}V  |  Output: {data['output_voltage']:.1f}V"
+            f"Input: {data['input_voltage']:.1f}V  |  Output: {data['output_voltage']:.1f}V",
         ]
         for info in ups_info:
             lcd_comm.DisplayText(
                 text=info,
                 x=5,
                 y=y_pos,
+                width=FULL_LINE_W,
+                height=FULL_LINE_H,
                 font="roboto/Roboto-Regular.ttf",
                 font_size=20,
                 font_color=WHITE,
-                background_color=(0, 0, 0)
+                background_color=(0, 0, 0),
+                align="left",
+                anchor="lt",
             )
             y_pos += ROW_GAP
 
-        # Servers Section (two columns)
         servers_y = (ups_y + HEADER_TO_FIRST_ROW_GAP + (len(ups_info) - 1) * ROW_GAP) + SECTION_TO_SECTION_GAP
         lcd_comm.DisplayText(
             text="SERVERS",
@@ -503,8 +534,10 @@ def main():
         )
         lcd_comm.DisplayText(
             text=_format_temp(data.get("smallserver_cpu_temp")),
-            x=SMALL_RIGHT_X,
+            x=SMALL_CELL_X,
             y=row1_y,
+            width=CELL_W,
+            height=ROW_H,
             font=FONT_TABLE,
             font_size=TABLE_FONT_SIZE,
             font_color=temp_to_color(data.get("smallserver_cpu_temp")),
@@ -523,8 +556,10 @@ def main():
         )
         lcd_comm.DisplayText(
             text=_format_temp(data.get("bigserver_cpu_temp")),
-            x=BIG_RIGHT_X,
+            x=BIG_CELL_X,
             y=row1_y,
+            width=CELL_W,
+            height=ROW_H,
             font=FONT_TABLE,
             font_size=TABLE_FONT_SIZE,
             font_color=temp_to_color(data.get("bigserver_cpu_temp")),
@@ -546,8 +581,10 @@ def main():
         )
         lcd_comm.DisplayText(
             text=_format_percent(data.get("smallserver_ram_used_percent")),
-            x=SMALL_RIGHT_X,
+            x=SMALL_CELL_X,
             y=row2_y,
+            width=CELL_W,
+            height=ROW_H,
             font=FONT_TABLE,
             font_size=TABLE_FONT_SIZE,
             font_color=WHITE,
@@ -566,8 +603,10 @@ def main():
         )
         lcd_comm.DisplayText(
             text=_format_percent(data.get("bigserver_ram_used_percent")),
-            x=BIG_RIGHT_X,
+            x=BIG_CELL_X,
             y=row2_y,
+            width=CELL_W,
+            height=ROW_H,
             font=FONT_TABLE,
             font_size=TABLE_FONT_SIZE,
             font_color=WHITE,
@@ -576,7 +615,6 @@ def main():
             anchor="rt",
         )
 
-        # NVME Temperature Section
         nvme_y = row2_y + SECTION_TO_SECTION_GAP
         nvme_line_y = nvme_y + HEADER_TO_FIRST_ROW_GAP
         lcd_comm.DisplayText(
@@ -592,13 +630,16 @@ def main():
             text=f"UMIS: {_format_temp(data.get('nvme_0100_temp'))}  |  990 Evo: {_format_temp(data.get('nvme_8100_temp'))}",
             x=5,
             y=nvme_line_y,
+            width=FULL_LINE_W,
+            height=FULL_LINE_H,
             font="roboto/Roboto-Regular.ttf",
             font_size=20,
             font_color=WHITE,
             background_color=(0, 0, 0),
+            align="left",
+            anchor="lt",
         )
 
         time.sleep(30)
-
 if __name__ == "__main__":
     main()
