@@ -1,10 +1,10 @@
 # ![Icon](https://raw.githubusercontent.com/mathoudebine/turing-smart-screen-python/main/res/icons/monitor-icon-17865/24.png) Custom Smart Screen Display
 
-### ⚠️ DISCLAIMER - PLEASE READ ⚠️
+### DISCLAIMER - PLEASE READ
 
 This project is a fork of the original [turing-smart-screen-python](https://github.com/mathoudebine/turing-smart-screen-python) project. It is **not affiliated, associated, authorized, endorsed by, or in any way officially connected with Turing / XuanFang / Kipye brands**, or any of their subsidiaries, affiliates, manufacturers, or sellers of their products. All product and company names are the registered trademarks of their original owners.
 
-This fork focuses on a custom implementation for displaying system metrics using a Python script (`screen_update.py`) on small IPS USB-C (UART) displays.
+This fork focuses on a custom implementation for displaying homelab metrics using a Python script (`screen_update.py`) on a small IPS USB-C (UART) display.
 
 ---
 
@@ -12,49 +12,83 @@ This fork focuses on a custom implementation for displaying system metrics using
 
 ## Overview
 
-This fork provides a Python script (`screen_update.py`) that connects to an InfluxDB database to retrieve system metrics and displays them on a small IPS USB-C display. The script is designed to run on various operating systems, including macOS, Windows, and Linux (including Raspberry Pi).
+This repo runs `screen_update.py`, which:
 
-### Features
+- Reads metrics from InfluxDB (UPS + servers + NVME temps).
+- Gets WAN ISP/location via `ip-api.com` with a cached fallback to avoid flashing back to `Unknown`.
+- Renders a fixed layout with sections: **INTERNET**, **UPS**, **SERVERS** (SMALL/BIG), **NVME**.
 
-- **System Metrics Display**: Retrieves and displays internet metrics, UPS status, and CPU temperature.
-- **Customizable Display**: Uses a text-based temperature gauge with color coding for easy readability.
-- **Cross-Platform**: Compatible with multiple operating systems that support Python 3.8+.
-- **Easy Setup**: Utilizes environment variables for configuration, making it easy to adapt to different setups.
+## Key Behavior (current)
 
-### How to Use
+- The background is drawn once at startup (`black_bg.png`), not every loop.
+- Section headers/labels are drawn once at startup (separator line + INTERNET/UPS/SERVERS/NVME + table labels).
+- The loop only redraws *dynamic values* every **15 seconds** (`time.sleep(15)`).
+- Dynamic rows/cells use fixed `width`/`height` in `DisplayText(...)` so values that shrink don't leave artifacts.
 
-1. **Clone the Repository**:
-    ```bash
-   git clone <your-fork-url>
-   cd <your-fork-directory>
-    ```
+## Configuration
 
-2. **Install Dependencies**:
-   Ensure you have Python 3.8+ and the required packages installed. You can use `pip` to install the dependencies:   ```bash
-   pip install -r requirements.txt   ```
+Create a `.env` file (same folder as `screen_update.py`) with at least:
 
-3. **Configure Environment Variables**:
-   Create a `.env` file in the root directory with the following variables:  
-   ```
-   INFLUXDB_URL=<your-influxdb-url>
-   INFLUXDB_TOKEN=<your-influxdb-token>
-   INFLUXDB_ORG=<your-influxdb-organization>
-   ```
+```
+INFLUXDB_URL=...
+INFLUXDB_TOKEN=...
+INFLUXDB_ORG=...
+INFLUXDB_BUCKET=homelab
+```
 
-4. **Run the Script**:
-   Execute the script to start displaying system metrics:   
-   ```
-   bash python server-screen/screen_update.py
-   ```
+Server selection uses a tag (defaults to `server_alias`). You can override:
 
-### Customization
+```
+INFLUXDB_SERVER_TAG=server_alias
+SMALLSERVER_ALIAS=smallserver
+BIGSERVER_ALIAS=bigserver
+```
 
-- **Display Settings**: Modify the `screen_update.py` script to change display settings such as font, colors, and layout.
-- **Data Sources**: Adjust the InfluxDB queries to fetch different metrics or from different buckets.
+## Running
 
-### Troubleshooting
+Use the existing virtual environment for this repo (local) or the pre-created `/root/server-screen/venv` (host). Avoid installing packages on the host.
 
-If you encounter issues, ensure that your environment variables are correctly set and that your InfluxDB instance is accessible. For further assistance, refer to the [original project's issues page](https://github.com/mathoudebine/turing-smart-screen-python/issues).
+Run:
+
+```bash
+python screen_update.py
+```
+
+## Making Layout Changes
+
+All drawing happens in `screen_update.py` inside `main()`.
+
+Guidelines:
+
+- Prefer drawing static labels/headers once before the `while True:` loop.
+- For values that change, use fixed-size redraw regions: `DisplayText(width=..., height=...)`.
+- If you add new sections, follow the same spacing constants already defined in `screen_update.py`.
+
+## Deployment Workflow (local -> GitHub -> host)
+
+This setup is deployed by **git only** (no direct file copying to the host).
+
+1) Make changes locally (usually `screen_update.py`).
+
+2) Commit + push to GitHub:
+
+```bash
+git status
+git add -A
+git commit -m "Your message"
+git push origin main
+```
+
+3) Pull on the host and restart the service:
+
+```bash
+ssh -i "D:\Dropbox\Documentos Pessoais\SSHs\homelab" root@192.168.0.60
+cd /root/server-screen
+git pull --ff-only origin main
+./venv/bin/python -m py_compile screen_update.py
+systemctl restart server-screen.service
+systemctl status server-screen.service --no-pager -l
+```
 
 ## Acknowledgments
 
